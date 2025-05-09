@@ -1,15 +1,14 @@
-
 all:
-	i686-elf-as boot.s -o boot.o
-	i686-elf-gcc -c kernel.c -o kernel.o -std=gnu23 -ffreestanding -O2 -Wall -Wextra
-	i686-elf-gcc -T linker.ld -o umbra.bin -ffreestanding -O2 -nostdlib boot.o kernel.o -lgcc
-	mkdir -p isodir/boot/grub
-	cp umbra.bin isodir/boot/umbra.bin
-	cp grub.cfg isodir/boot/grub/grub.cfg
-	grub-mkrescue -o umbra.iso isodir
+	@echo "make all is not currently supported."
 
-run: all
-	qemu-system-i386 -cdrom umbra.iso	
+image:
+	make -C umbra diskboot
+	cp umbra/diskboot umbra.img
+	#printf '\125\252' | dd of=./umbra.img bs=1 seek=510 conv=notrunc
+
+run: image
+	qemu-system-x86_64 -drive format=raw,file=umbra.img
 
 clean:
-	rm -rf *.o umbra.bin isodir umbra.iso	
+	make -C umbra clean
+	rm -f umbra.img
