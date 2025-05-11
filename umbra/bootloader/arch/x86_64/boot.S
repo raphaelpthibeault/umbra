@@ -29,6 +29,11 @@ start:
 	/* print notificatin message to screen */	
 	movw $notification_string, %si
 	call putstr
+
+	/* goal: the goal here is to load the first sector of stage 2, and then have stage2 figure the rest out
+	 * location: 0x8000
+	 * 
+	 **/
 	
 	cli
 	hlt
