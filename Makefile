@@ -4,7 +4,8 @@ all:
 image:
 	make -C umbra boot
 	cp umbra/boot umbra.img
-	#printf '\125\252' | dd of=./umbra.img bs=1 seek=510 conv=notrunc
+	# pad so that the disk load code loads something (nothing, but it's something)
+	printf '\000' | dd of=./umbra.img bs=1 seek=1474559 conv=notrunc
 
 run: image
 	qemu-system-x86_64 -drive format=raw,file=umbra.img

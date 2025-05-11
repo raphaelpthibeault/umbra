@@ -7,7 +7,7 @@ CC = $(ARCH)-elf-gcc
 ASFLAGS=-nostdlib -I./bootloader/arch/$(ARCH)/
 
 bootloader/arch/$(ARCH)/boot.o: bootloader/arch/$(ARCH)/boot.S
-	$(AS) $(ASFLAGS) -o $@ $
+	$(AS) $(ASFLAGS) -o $@ $^
 
 boot: bootloader/arch/$(ARCH)/boot.o
 	$(LD) -N -T bootloader/arch/$(ARCH)/linker.ld -o $@ $^
