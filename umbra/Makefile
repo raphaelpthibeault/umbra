@@ -1,12 +1,12 @@
 ARCH=x86_64
 
-diskboot: ASFLAGS=-nostdlib -I./bootloader/arch/$(ARCH)/
+boot: ASFLAGS=-nostdlib -I./bootloader/arch/$(ARCH)/
 
-## MBR
-diskboot: bootloader/arch/$(ARCH)/diskboot.o
+
+boot: bootloader/arch/$(ARCH)/boot.o
 	$(LD) -N -T bootloader/arch/$(ARCH)/linker.ld -o $@ $^
 
 clean:
 	find . -name "*.o" | xargs rm -f
-	rm -f diskboot
+	rm -f boot
 
