@@ -102,12 +102,9 @@ copy_buffer:
 	popw %ds
 	popa
 
-	/* jump to stage2 */
-	/* jmp *(0x8000) */
-
-	/* print notification message to screen */	
-	movw $notification_string, %si
-	call putstr
+	/* jump to 'start' of stage2 */
+	/* jmp *(start_address) */
+	jmp 0x8000
 
 panic:
 	/* print panic message to screen */	
@@ -141,7 +138,7 @@ putstr:
 	jne 1b							/* if not end of null, jump to display */
 	ret
 
-notification_string: .asciz "UMBRA BOOTLOADER "
+notification_string: .asciz "UMBRA BOOTLOADER... "
 panic_string: .asciz " PANIC "
 error_string: .asciz " ERROR "
 
