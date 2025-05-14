@@ -9,7 +9,7 @@ build: clean mkimage
 	make -C umbra boot.img start.img
 	cp umbra/boot.img boot.img
 	cp umbra/start.img core.img
-	printf '\000' | dd of=./core.img bs=1 seek=1474559 conv=notrunc
+	printf '\000' | dd of=./core.img bs=1 seek=65536 conv=notrunc
 	./mkimage . boot.img core.img
 
 run: build
