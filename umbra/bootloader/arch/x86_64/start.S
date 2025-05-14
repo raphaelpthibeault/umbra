@@ -7,8 +7,20 @@
 	 * Recall, only 1 sector is loaded. We must load the rest of the sectors to perform stage2 
 	 **/
 start:
+	/* continue the stack of boot.img, I assume some registers are set to some values that should be saved */
+	
+	/* save drive reference */
+	pushw %dx	
+
+	pushw %si
 	movw $notification_string, %si
 	call putstr
+	popw %si
+
+	/* setup first call to bootloop */
+
+
+bootloop:
 
 
 	cli 
@@ -34,4 +46,23 @@ putstr:
 notification_string: .asciz "Starting stage2... "
 
 /* should only be 1 sector */
-.org 512
+/* the sizeof(umbra_boot_blocklist) blocklist is 12 bytes 
+ * 
+ *	struct umbra_boot_blocklist {
+ *		uint64_t start;
+ *		uint16_t length;
+ *		uint16_t segment;
+ *	} __attribute__((packed));
+*/
+.org 512 - 12
+
+firstlist:
+blocklist_start:
+	/* sector start parameter, in logical sectors from start of disk (sector 0) */
+	.long 2, 0 
+blocklist_length:
+	/* number of sectors to read */
+	.word 0
+blocklist_segment:
+	/* segment of the starting address to load the data into */
+	.word (0x800 + 0x20)
