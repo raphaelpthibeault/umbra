@@ -26,7 +26,14 @@ start.img: bootloader/arch/$(ARCH)/start.o
 	$(LD) -N -T bootloader/arch/$(ARCH)/start.ld -o $@ $^
 
 
+# stage2.img
+bootloader/arch/$(ARCH)/asm.o: bootloader/arch/$(ARCH)/asm.S
+	$(AS) $(ASFLAGS) -o $@ $^
+
+stage2.img: bootloader/arch/$(ARCH)/asm.o
+	$(LD) -N -T bootloader/arch/$(ARCH)/core.ld -o $@ $^
+
 clean:
 	find . -name "*.o" | xargs rm -f
-	rm -f boot.img start.img
+	rm -f boot.img start.img stage2.img
 

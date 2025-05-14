@@ -6,10 +6,13 @@ mkimage: umbra/util/mkimage.c
 	gcc -o $@ $^
 
 build: clean mkimage
-	make -C umbra boot.img start.img
+	make -C umbra boot.img start.img stage2.img
 	cp umbra/boot.img boot.img
-	cp umbra/start.img core.img
-	printf '\000' | dd of=./core.img bs=1 seek=65536 conv=notrunc
+	cp umbra/start.img start.img
+	cp umbra/stage2.img stage2.img
+	# prepend start.img to core.img
+	cat start.img stage2.img > core.img
+	printf '\000' | dd of=./core.img bs=1 seek=10000 conv=notrunc
 	./mkimage . boot.img core.img
 
 run: build
@@ -17,5 +20,5 @@ run: build
 
 clean:
 	make -C umbra clean
-	rm -f mkimage umbra.img boot.img core.img
+	rm -f mkimage umbra.img boot.img core.img start.img stage2.img
 

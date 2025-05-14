@@ -106,7 +106,7 @@ copy_buffer:
 	pusha
 	pushw %ds
 
-	/* get copy length *.
+	/* get copy length */
 	shlw $3, %ax
 	movw %ax, %cx
 
@@ -143,9 +143,7 @@ bootit:
 	call putstr
 
 	/* jump to core */
-	/* ljmp $0, $0x8200 */
-	cli 
-	hlt	
+	ljmp	$0, $0x8200
 
 panic:
 	movw $panic_string, %si
