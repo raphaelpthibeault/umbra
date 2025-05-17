@@ -6,8 +6,6 @@ CC= $(ARCH)-elf-gcc
 OBJCOPY= $(ARCH)-elf-objcopy
 
 ASFLAGS=-c -nostdlib -m32 -I./bootloader/arch/$(ARCH)/
-#  32-bt code even if on a 64-bit machine; the kernel will jump to long mode, the bootloader will not
-# -I ?
 CFLAGS=-c -ffreestanding -std=c23 -m32 -fno-pie -fno-stack-protector -nostdlib -nostdinc -Wall -Wextra -O2 -g -I./bootloader/
 LDFLAGS=-m elf_i386 
 

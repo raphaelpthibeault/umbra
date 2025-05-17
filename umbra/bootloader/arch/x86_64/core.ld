@@ -22,7 +22,9 @@ SECTIONS
 
 	.bss : 
 	{
+		PROVIDE(_bss_start = .);
 		*(.bss)
+		PROVIDE(_bss_end = .);
 	}
 }
 
