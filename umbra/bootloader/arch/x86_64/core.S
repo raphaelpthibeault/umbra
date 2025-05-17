@@ -54,8 +54,8 @@ prot_mode:
 	 **/
 
 
-	#.extern boot_main
-	#call boot_main
+	.extern boot_main
+	call boot_main
 	
 	cli
 	hlt
