@@ -35,7 +35,11 @@ start:
 	or $2, %al
 	out %al, $0x92
 	
-	calll real_to_prot
+	jmp real_to_prot
+	cli
+	hlt
+
+prot_mode:
 	.code32
 	cld
 
@@ -49,6 +53,10 @@ start:
 	 * that will load the kernel from file system and jump to it
 	 **/
 
+
+	#.extern boot_main
+	#call boot_main
+	
 	cli
 	hlt
 
@@ -98,14 +106,10 @@ protcseg:
 
 	xorl %eax, %eax
 
-	sidt realidt
-	lidt protidt
-
-	/* return to old stack */
-	ret
+	jmp prot_mode
 	
 
-.code16 /* 16-bit functions */
+	.code16 /* 16-bit functions */
 /* putstr:  write the string pointed to by %si
  * WARNING: trashes %si, %ax, and %bx
  *
@@ -181,8 +185,9 @@ puthex_loop_end:
 	ret
 
 
+	.data
 notification_string: .asciz "Begin asm.S... "
-pm_mode_string: .asciz "We are now in protected mode ... "
+pm_mode_string: .asciz "We are now in protected mode... "
 
 boot_drive:
 	.byte 0x00
@@ -215,16 +220,9 @@ gdtdesc:
 	.word 0x27	/* limit = 39 ; */
 	.long gdt		/* addr ; of start */
 
-realidt:
-	.word 0x400
-	.long 0
-protidt:
-	.word 0
-	.word 0
-
-.code32 /* 32-bit functions */
+	.code32 /* 32-bit functions */
 /* no longer have BIOS-utilities, use VGA memory for printing */
-
+	.text
 clear_screen:
 	pushal
 		

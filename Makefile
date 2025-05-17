@@ -12,7 +12,6 @@ build: clean mkimage
 	cp umbra/stage2.img stage2.img
 	# prepend start.img to core.img
 	cat start.img stage2.img > core.img
-	printf '\000' | dd of=./core.img bs=1 seek=10000 conv=notrunc
 	./mkimage . boot.img core.img
 
 run: build
@@ -21,4 +20,3 @@ run: build
 clean:
 	make -C umbra clean
 	rm -f mkimage umbra.img boot.img core.img start.img stage2.img
-
