@@ -45,6 +45,9 @@ start:
 	call putstr_pm
 	popw %si
 
+	movb boot_drive, %dl	
+	pushl %edx
+
 	.extern boot_main
 	call boot_main
 
