@@ -33,8 +33,10 @@ ebpb:
 
 main:
 	cli									/* UNSAFE NOW */
-	/* I will assume that the BIOS will pass the boot drive correctly  */
 	/* I will also assume that the BIOS will jump correctly to 0x0000:0x7C00 */
+
+	cmpb $0x80, %dl
+	jne drive_error
 
 	/* init segments as offset from 0 */
 	xorw %ax, %ax
@@ -139,6 +141,12 @@ panic:
 	cli
 	hlt
 
+drive_error:
+	movw $drive_error_string, %si
+	call putstr
+	cli
+	hlt
+
 error:
 	/* print error message to screen */	
 	movw $error_string, %si
@@ -167,6 +175,7 @@ putstr:
 notification_string: .asciz "UMBRA BOOTLOADER... "
 panic_string: .asciz " PANIC "
 error_string: .asciz " ERROR "
+drive_error_string: .asciz " ERROR: BIOS PASSED DRIVE != 0x80 "
 
 mode:
 	.byte 0

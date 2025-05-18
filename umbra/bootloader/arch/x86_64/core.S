@@ -1,3 +1,5 @@
+#include <asm.h>
+
 	.text 
 	.code16
 
@@ -20,8 +22,7 @@ start:
 	movw %ax, %es
 
 	/* setup stack again, different stack than in boot.S and start.S */
-	/* 0x2000 - 0x10 */
-	movl $0x1ff0, %ebp
+	movl $STACK_OFF, %ebp
 	movl %ebp, %esp
 	cli								/* SAFE AGAIN */
 	
@@ -63,14 +64,11 @@ real_to_prot:
 
 	/* turn on PM by setting bit 0 if control register 0, note that cr0 cannot be modified directly */
 	movl %cr0, %eax
-	orl $0x1, %eax
+	orl $CR0_PE_ON, %eax
 	movl %eax, %cr0
 
-	/* far/long jump to relocation, flush prefetch queue and reload %cs 
-	 * code segment: 0x08
-	 * data segment: 0x10
-	 **/
-	ljmpl $0x08, $protcseg
+	/* far/long jump to relocation, flush prefetch queue and reload %cs */
+	ljmpl $PROT_CSEG, $protcseg
 	
 protcseg:
 	.code32
@@ -78,7 +76,7 @@ protcseg:
    * i.e. tell all segment registers to point to flat-mode data segment and then do stack stuff 
 	 **/
 
-	movw $0x10, %ax
+	movw $PROT_DSEG, %ax
 	movw %ax, %ds
 	movw %ax, %es
 	movw %ax, %fs
@@ -87,7 +85,7 @@ protcseg:
 
 	/* put the return address in a known safe location */
 	movl (%esp), %eax
-	movl %eax, 0x1ff0
+	movl %eax, STACK_OFF
 
 	/* get protected-mode stack */
 	movl protstack, %eax
@@ -95,10 +93,13 @@ protcseg:
 	movl %eax, %ebp
 
 	/* get return address onto correct stack */ 
-	movl 0x1ff0, %eax 
+	movl STACK_OFF, %eax 
 	movl %eax, (%esp)
 
 	xorl %eax, %eax
+
+	sidt realidt
+	lidt protidt
 
 	ret
 
@@ -137,4 +138,12 @@ gdt:
 gdtdesc:
 	.word 0x27	/* limit = 39 ; */
 	.long gdt		/* addr ; of start */
+
+realidt:
+	.word 0x400
+	.long 0
+
+protidt:
+	.word 0
+	.long 0
 
