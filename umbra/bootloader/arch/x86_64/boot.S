@@ -163,8 +163,13 @@ stage2_sector:
 stage2_sector_high:
 	.long 0
 
+.org 0x1be 
+partition_table:
+	.fill 0x40, 0x1, 0x0 
 
 /* BIOS magic number */
-.org 510
+.org 0x1fe
 	.byte 0x55
 	.byte 0xAA
+
+.org 0x200 # for sanity/safety check
