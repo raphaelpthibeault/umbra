@@ -98,6 +98,7 @@ protcseg:
 	xorl %eax, %eax
 
 	ret
+
 	
 	.data
 notification_string: .asciz "Begin core ... "

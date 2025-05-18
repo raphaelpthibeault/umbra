@@ -6,6 +6,32 @@
 	 * start is loaded at 0x7c00 and is jumped to with CS:IP 0:0x7c00
 	 **/
 start:
+	jmp main
+	/* BPB: BIOS Parameter Block */
+bpb:
+	.org 0x03, 0x00
+	.space 0x08, 0x00	# OEM ID	
+	.word 512 # sector size (T)
+	.byte	0		# sectors/clustor
+	.word	0		# reserved sectors
+	.byte	0		# number of FATs
+	.word	0		# root entries
+	.word	0		# small sectors
+	.byte	0		# media type (W)
+	.word	0		# sectors/fat
+	.word	18	# sectors per track (T)
+	.word	2		# number of heads (T)
+	.long	0		# hidden sectors (W)
+	.long	0		# large sectors
+ebpb:
+	.byte 0		# BIOS physical drive number (W)
+	.byte 0		# reserved
+	.byte 0		# signature
+	.long 0		# volume id serial number
+	.space 0x0b, 0x00	# volume label string
+	.space 0x08, 0x00 # file system type aka system identifer string
+
+main:
 	cli									/* UNSAFE NOW */
 	/* I will assume that the BIOS will pass the boot drive correctly  */
 	/* I will also assume that the BIOS will jump correctly to 0x0000:0x7C00 */
