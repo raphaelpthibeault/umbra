@@ -2,7 +2,7 @@
 #include "vga.h"
 
 void * 
-memset(void * dest, int c, long n) 
+memset(void *dest, int c, long n) 
 {
 	__asm__ volatile("cld; rep stosb"
 	             : "=c"((int){0})
