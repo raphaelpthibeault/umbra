@@ -7,5 +7,7 @@
 #define CR0_PE_ON 0x1
 #define PROT_CSEG 0x08
 #define PROT_DSEG 0x10
+#define PSEUDO_REAL_CSEG 0x18
+#define PSEUDO_REAL_DSEG 0x20
 
 #endif // !__ASM_H__

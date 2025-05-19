@@ -24,7 +24,7 @@ start:
 	/* setup stack again, different stack than in boot.S and start.S */
 	movl $STACK_OFF, %ebp
 	movl %ebp, %esp
-	cli								/* SAFE AGAIN */
+	sti								/* SAFE AGAIN */
 	
 	/* save boot drive */
 	movb %dl, boot_drive
@@ -35,6 +35,7 @@ start:
 	in $0x92, %al
 	or $2, %al
 	out %al, $0x92
+
 	
 	DATA32 call real_to_prot
 	.code32
@@ -46,6 +47,27 @@ start:
 	call putstr_pm
 	popw %si
 
+	/* TODO check presence of PCI, CPUID, MSRs 
+	 * I am just assuming they are there for now
+	 **/
+
+	/* check for SSE: CPUID.01h:EDX.SSE[bit 25] needs to be set */
+	movl $0x1, %eax
+	cpuid
+	testl $0x2000000, %edx
+	jz panic
+
+	/* enable SSE */
+	movl %cr0, %eax
+	andw $0xFFFB, %ax		# clear coprocessor emulation CR0.EM (bit 2)
+	orw $0x2, %ax				# set coprocessor monitoring CR0.MP (bit 1)
+	movl %eax, %cr0
+	movl %cr4, %eax
+	orw  $(3 << 9), %ax	# set CR4.OSFXSR (bit 9) and CR4.OSXMMEXCPT (bit 10)
+											# (3 << 9) = (1 << 9) | (1 << 10) = 0x200 | 0x400 = 0x600
+	movl %eax, %cr4
+
+
 	movb boot_drive, %dl	
 	pushl %edx
 
@@ -56,6 +78,8 @@ start:
 	cli
 	hlt
 
+
+	.globl real_to_prot
 real_to_prot:
 	.code16
 	cli
@@ -92,7 +116,7 @@ protcseg:
 	movl %eax, %esp
 	movl %eax, %ebp
 
-	/* get return address onto correct stack */ 
+	/* put return address onto correct stack */ 
 	movl STACK_OFF, %eax 
 	movl %eax, (%esp)
 
@@ -102,6 +126,63 @@ protcseg:
 	lidt protidt
 
 	ret
+
+	.globl prot_to_real
+prot_to_real:
+	.code32
+	lgdt gdtdesc	# just in case, for sanity
+	
+	sidt protidt
+	lidt realidt
+
+	/* save protected mode stack */
+	movl %esp, %eax
+	movl %eax, protstack
+
+	/* get return address */
+	movl (%esp), %eax
+	movl %eax, STACK_OFF
+
+	/* setup real mode stack */
+	movl $STACK_OFF, %eax
+	movl %eax, %esp
+	movl %eax, %ebp
+
+	/* setup segment lists */
+	movw $PSEUDO_REAL_DSEG, %ax	
+	movw	%ax, %ds
+	movw	%ax, %es
+	movw	%ax, %fs
+	movw	%ax, %gs
+	movw	%ax, %ss
+
+	ljmp $PSEUDO_REAL_CSEG, $tmpcseg
+
+tmpcseg:
+	.code16
+	/* clear PE bit of cr0 */
+	movl %cr0, %eax
+	andl $(~CR0_PE_ON), %eax
+	movl %eax, %cr0
+
+	/* flush prefetch queue, reload %cs */
+	ljmpl	$0, $realcseg
+
+realcseg:
+	/* actually in real mode */
+	xorl %eax, %eax
+	movw	%ax, %ds
+	movw	%ax, %es
+	movw	%ax, %fs
+	movw	%ax, %gs
+	movw	%ax, %ss
+
+	sti
+	ret
+
+panic:
+	cli
+	hlt
 
 	
 	.data
@@ -139,10 +220,12 @@ gdtdesc:
 	.word 0x27	/* limit = 39 ; */
 	.long gdt		/* addr ; of start */
 
+	.globl realidt
 realidt:
 	.word 0x400
 	.long 0
 
+	.globl protidt
 protidt:
 	.word 0
 	.long 0

@@ -1,5 +1,6 @@
 #include <types.h>
 #include "vga.h"
+#include "e820.h"
 
 void * 
 memset(void *dest, int c, long n) 
@@ -21,6 +22,7 @@ itoa(int value, char* result, int base)
 
 	char* ptr = result, *ptr1 = result, tmp_char;
 	int tmp_value;
+
 
 	do {
 		tmp_value = value;
@@ -54,16 +56,16 @@ boot_main(uint8_t boot_drive)
 	putstr("\n*** UMBRA BOOTLOADER STAGE2 ***\n", COLOR_GRN, COLOR_BLK); // weird bug where first line starts with a space
 
 	memset(&_bss_start,0,(uintptr_t)&_bss_end-(uintptr_t)&_bss_start);
-	putstr("Zeroed BSS\n", COLOR_GRN, COLOR_BLK);
+	putstr("Started booting ...\n", COLOR_GRN, COLOR_BLK);
 
-	if (boot_drive != 0x80) {
-		putstr("[Warning] BIOS boot drive not 'C:'!\n\t boot drive: ", COLOR_GRN, COLOR_BLK); 
-		
-		char res[1];
-		itoa(boot_drive, res, 10);
+	do_e820();
+	putstr("Did e820\n", COLOR_GRN, COLOR_BLK);
+	{
+		putstr("e820 memmap entries count: ", COLOR_GRN, COLOR_BLK);
+		char res[8];
+		itoa(e820_entries, res, 10);
 		putstr(res, COLOR_GRN, COLOR_BLK); 
 	}
-
 
 	while (1);
 }

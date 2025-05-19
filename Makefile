@@ -15,7 +15,7 @@ build: clean mkimage
 	./mkimage . boot.img core.img
 
 run: build
-	qemu-system-x86_64 -drive format=raw,file=umbra.img
+	qemu-system-x86_64 -drive format=raw,file=umbra.img -no-reboot
 
 clean:
 	make -C umbra clean
