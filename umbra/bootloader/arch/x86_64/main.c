@@ -1,6 +1,7 @@
 #include <types.h>
 #include "vga.h"
 #include "e820.h"
+#include <mm/pmm.h>
 
 void * 
 memset(void *dest, int c, long n) 
@@ -59,12 +60,16 @@ boot_main(uint8_t boot_drive)
 	putstr("Started booting ...\n", COLOR_GRN, COLOR_BLK);
 
 	do_e820();
-	putstr("Did e820\n", COLOR_GRN, COLOR_BLK);
+	putstr("Got e820 memmap\n", COLOR_GRN, COLOR_BLK);
+
+	init_memmap();
+	putstr("Init'd bootloader memmap\n", COLOR_GRN, COLOR_BLK);
 	{
-		putstr("e820 memmap entries count: ", COLOR_GRN, COLOR_BLK);
+		putstr("\t# entries: ", COLOR_GRN, COLOR_BLK);
 		char res[8];
-		itoa(e820_entries, res, 10);
+		itoa(memmap_entries, res, 10);
 		putstr(res, COLOR_GRN, COLOR_BLK); 
+		putstr("\n", COLOR_GRN, COLOR_BLK);
 	}
 
 	while (1);

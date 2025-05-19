@@ -9,7 +9,7 @@ BOOT_CFLAGS=-c -ffreestanding -std=c23 -m32 -fno-pie -fno-stack-protector -nostd
 BOOT_LDFLAGS=-m elf_i386 
 
 STAGE2_ASM_SOURCES= bootloader/arch/$(ARCH)/core.S bootloader/arch/$(ARCH)/asm.S bootloader/arch/$(ARCH)/int.S
-STAGE2_C_SOURCES= bootloader/arch/$(ARCH)/main.c bootloader/arch/$(ARCH)/vga.c bootloader/arch/$(ARCH)/e820.c
+STAGE2_C_SOURCES= bootloader/arch/$(ARCH)/main.c bootloader/arch/$(ARCH)/vga.c bootloader/arch/$(ARCH)/e820.c bootloader/mm/pmm.c
 
 STAGE2_ASM_OBJS := $(STAGE2_ASM_SOURCES:.S=.o)
 STAGE2_C_OBJS := $(STAGE2_C_SOURCES:.c=.o)
