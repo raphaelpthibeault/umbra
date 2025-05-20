@@ -62,7 +62,7 @@ boot_main(uint8_t boot_drive)
 	do_e820();
 	putstr("Got e820 memmap\n", COLOR_GRN, COLOR_BLK);
 
-	init_memmap();
+	memmap_init();
 	putstr("Init'd bootloader memmap\n", COLOR_GRN, COLOR_BLK);
 	{
 		putstr("\t# entries: ", COLOR_GRN, COLOR_BLK);

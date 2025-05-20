@@ -20,6 +20,7 @@ struct memmap_entry {
 extern struct memmap_entry memmap[];
 extern size_t memmap_entries;
 
-void init_memmap(void);
+void memmap_init(void);
+void memmap_sanitize_entries(struct memmap_entry *map, size_t *_count, bool align);
 
 #endif // !__PMM_H__

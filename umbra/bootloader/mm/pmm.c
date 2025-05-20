@@ -8,15 +8,57 @@
 
 #define FREE_MEM 0x100000 /* RAM, extended memory ; 00x100000-x00efffff  */
 #define memmap_max_entries ((size_t)512)
+#define PAGE_SIZE 0x1000
 
 struct memmap_entry memmap[memmap_max_entries];
 size_t memmap_entries = 0;
+
+#define DIV_ROUNDUP(a, b) ({ \
+    __auto_type DIV_ROUNDUP_a = (a); \
+    __auto_type DIV_ROUNDUP_b = (b); \
+    (DIV_ROUNDUP_a + (DIV_ROUNDUP_b - 1)) / DIV_ROUNDUP_b; \
+})
+
+#define ALIGN_UP(x, a) ({ \
+    __auto_type ALIGN_UP_value = (x); \
+    __auto_type ALIGN_UP_align = (a); \
+    ALIGN_UP_value = DIV_ROUNDUP(ALIGN_UP_value, ALIGN_UP_align) * ALIGN_UP_align; \
+    ALIGN_UP_value; \
+})
+
+#define ALIGN_DOWN(x, a) ({ \
+    __auto_type ALIGN_DOWN_value = (x); \
+    __auto_type ALIGN_DOWN_align = (a); \
+    ALIGN_DOWN_value = (ALIGN_DOWN_value / ALIGN_DOWN_align) * ALIGN_DOWN_align; \
+    ALIGN_DOWN_value; \
+})
+
+
+static bool
+page_align_entry(uint64_t *base, uint64_t *length) {
+	if (*length < PAGE_SIZE) {
+		return false;
+	}
+
+	uint64_t original_base = *base;
+
+	*base = ALIGN_UP(*base, PAGE_SIZE);
+	*length -= (*base - original_base);
+	*length = ALIGN_DOWN(*length, PAGE_SIZE);
+
+	if (!length) {
+		return false;
+	}
+
+	return true;
+}
+
 
 /* reference:
  * https://wiki.osdev.org/Memory_Map_(x86)
  **/
 void
-init_memmap(void)
+memmap_init(void)
 {
 	for (size_t i = 0; i < e820_entries; ++i) {
 		if (memmap_entries == memmap_max_entries) {
@@ -47,4 +89,73 @@ init_memmap(void)
 		++memmap_entries;
 	}
 
+	memmap_sanitize_entries(memmap, &memmap_entries, false);
+
 }
+
+void 
+memmap_sanitize_entries(struct memmap_entry *map, size_t *_count, bool page_align)
+{
+	size_t count = *_count;	
+	
+	for (size_t i = 0; i < count; ++i) {
+		if (map[i].type != MEMMAP_USABLE) {
+			continue;
+		}
+
+		/* check if the current entry has an overlap with other entries */
+		for (size_t j = 0; j < count; ++j) {
+			if (j == i) {
+				continue;
+			}
+
+			uint64_t base = map[i].base;
+			uint64_t length = map[i].length;
+			uint64_t top = base + length;
+
+			uint64_t j_base = map[j].base;
+			uint64_t j_length = map[j].length;
+			uint64_t j_top = j_base + j_length;
+
+			/* the i contains j case */	
+			if ((j_base >= base && j_base < top) 
+					&& (j_top >= base && j_top < top)) {
+				/* TODO: surely there's some algorithm to to split the overlapping parts */
+				putstr("[Panic] memmap entry fully contains another", COLOR_RED, COLOR_BLK);
+				while(1);
+			}
+
+			/* j_base is in i
+			 * [    i     ]
+			 *          [   j   ] 
+			 **/
+			if (j_base >= base && j_base < top) {
+				top = j_base;		
+			}
+
+			/* j_top is in i
+			 *		     [    i     ]
+			 * [    j    ] 
+			 **/
+			if (j_top >= base && j_top < top) {
+				base = j_top;	
+			}
+
+			/* update, idempotent otherwise */
+			map[i].base = base;
+			map[i].length = top - base;
+		}
+
+		if (!map[i].length 
+				|| (page_align && !page_align_entry(&map[i].base, &map[i].length))) {
+			// remove i from memmap
+			if (i < count) {
+				map[i] = map[count - 1];
+			}
+			--count;
+			--i;
+		} 
+	}
+
+}
+
