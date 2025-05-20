@@ -93,12 +93,16 @@ memmap_init(void)
 
 }
 
+/* from what I can tell, for UEFI (and maybe risc/aarch) this should be true */
+bool pmm_sanitizer_keep_first_page = false;
+
 void 
 memmap_sanitize_entries(struct memmap_entry *map, size_t *_count, bool page_align)
 {
+	size_t i;
 	size_t count = *_count;	
 	
-	for (size_t i = 0; i < count; ++i) {
+	for (i = 0; i < count; ++i) {
 		if (map[i].type != MEMMAP_USABLE) {
 			continue;
 		}
@@ -155,6 +159,32 @@ memmap_sanitize_entries(struct memmap_entry *map, size_t *_count, bool page_alig
 			--count;
 			--i;
 		} 
+	}
+
+	/* remove length=0 entries and usable entries in the first page */
+	for (i = 0; i < count; ++i) {
+		if (map[i].type != MEMMAP_USABLE) {
+			continue;
+		}
+
+		if (!pmm_sanitizer_keep_first_page && map[i].base < PAGE_SIZE) {
+			if (map[i].base + map[i].length <= PAGE_SIZE) {
+				goto del_memmap_entry;
+			}
+
+			// bigger than page size, adjust upwards 
+			map[i].length -= (PAGE_SIZE - map[i].base);
+			map[i].base = PAGE_SIZE;
+		}
+
+		if (map[i].length == 0) {
+del_memmap_entry:	
+			if (i < count - 1) {
+				map[i] = map[count - 1];
+			}
+			--count;
+			--i;
+		}
 	}
 
 }
