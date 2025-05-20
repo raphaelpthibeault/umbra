@@ -99,7 +99,7 @@ bool pmm_sanitizer_keep_first_page = false;
 void 
 memmap_sanitize_entries(struct memmap_entry *map, size_t *_count, bool page_align)
 {
-	size_t i;
+	size_t i, j;
 	size_t count = *_count;	
 	
 	for (i = 0; i < count; ++i) {
@@ -108,7 +108,7 @@ memmap_sanitize_entries(struct memmap_entry *map, size_t *_count, bool page_alig
 		}
 
 		/* check if the current entry has an overlap with other entries */
-		for (size_t j = 0; j < count; ++j) {
+		for (j = 0; j < count; ++j) {
 			if (j == i) {
 				continue;
 			}
@@ -123,7 +123,7 @@ memmap_sanitize_entries(struct memmap_entry *map, size_t *_count, bool page_alig
 
 			/* the i contains j case */	
 			if ((j_base >= base && j_base < top) 
-					&& (j_top >= base && j_top < top)) {
+				&& (j_top >= base && j_top < top)) {
 				/* TODO: surely there's some algorithm to to split the overlapping parts */
 				putstr("[Panic] memmap entry fully contains another", COLOR_RED, COLOR_BLK);
 				while(1);
@@ -151,7 +151,7 @@ memmap_sanitize_entries(struct memmap_entry *map, size_t *_count, bool page_alig
 		}
 
 		if (!map[i].length 
-				|| (page_align && !page_align_entry(&map[i].base, &map[i].length))) {
+			|| (page_align && !page_align_entry(&map[i].base, &map[i].length))) {
 			// remove i from memmap
 			if (i < count) {
 				map[i] = map[count - 1];
@@ -187,5 +187,35 @@ del_memmap_entry:
 		}
 	}
 
+	/* sort the entries, then merge contiguous entries of the same type (bootloader-reclaimable and usable) */
+	// insertion sort because we know the entries are already sorted by e820, or are almost sorted
+	struct memmap_entry t;
+	for (i = 0; i < count; ++i) {
+		t = map[i];	
+		for (j = i; j > 0 && map[j-1].base > t.base; --j) {
+			map[j] = map[j-1];
+		}
+		map[j] = t;
+	}
+	// merge
+	for (i = 0; i < count; ++i) {
+		if (map[i].type != MEMMAP_BOOTLOADER_RECLAIMABLE 
+			&& map[i].type != MEMMAP_USABLE) {
+			continue;
+		}
+		
+		if (map[i].type == map[i+1].type
+			&& map[i].base + map[i].length == map[i+1].base) {
+			map[i].length += map[i+1].length;
+
+			for (j = i + 2; j < count; ++j) {
+				map[j-1] = map[j];
+			}
+			--count;
+			--i;
+		}
+	}
+
+	*_count = count;
 }
 
