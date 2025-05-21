@@ -241,6 +241,8 @@ umbra_mkimage(const char *dir, const char *boot_file, const char *core_file)
 		if (umbra_size != umbra_size_expected) {
 			umbra_error("umbra_size != umbra_size_expected: '%lu' != '%lu'",
 					umbra_size, umbra_size_expected);
+		} else {
+			umbra_info("bootloader size: '%lu'", umbra_size);
 		}
 
 		free(umbra_path);

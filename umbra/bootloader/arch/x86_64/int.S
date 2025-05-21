@@ -68,7 +68,7 @@ bios_register_flags:
 	.byte 0x66, 0xb8
 bios_register_eax:
 	.long 0
-	
+
 	/* int imm8.  */
 	.byte 0xcd
 intnb:	
@@ -85,6 +85,9 @@ intnb:
 	mov %es, %ax
 	movw %ax, bios_register_es
 
+	movl %ebx, bios_register_ebx
+	movl %ecx, bios_register_ecx
+
 	popf
 
 	call real_to_prot
@@ -92,8 +95,6 @@ intnb:
 
 	popl %eax
 
-	movl %ebx, 12(%eax)
-	movl %ecx, 16(%eax)
 	movl %edi, 20(%eax)
 	movl %esi, 24(%eax)
 	movl %edx, 28(%eax)
@@ -108,6 +109,10 @@ intnb:
 	movw %ax, 6(%edx)
 	movw bios_register_flags, %ax
 	movw %ax, 8(%edx)
+	movl bios_register_ebx, %eax
+	movl %eax, 12(%edx)
+	movl bios_register_ecx, %eax
+	movl %eax, 16(%edx)
 
 	popl %edi
 	popl %esi
@@ -116,3 +121,9 @@ intnb:
 	popl %ecx
 	popl %ebp
 	ret
+
+	.data
+bios_register_ebx:
+	.long 0
+bios_register_ecx:
+	.long 0

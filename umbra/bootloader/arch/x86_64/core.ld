@@ -20,6 +20,7 @@ SECTIONS
 		*(.data)
 	}
 
+	/* it's very important that the bss is at the end of core.ld, specifically _bss_end */
 	.bss : 
 	{
 		PROVIDE(_bss_start = .);
