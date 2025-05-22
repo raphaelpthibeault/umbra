@@ -220,11 +220,13 @@ gdtdesc:
 	.word 0x27	/* limit = 39 ; */
 	.long gdt		/* addr ; of start */
 
+	.code16
 	.globl realidt
 realidt:
 	.word 0x400
 	.long 0
 
+	.code32
 	.globl protidt
 protidt:
 	.word 0

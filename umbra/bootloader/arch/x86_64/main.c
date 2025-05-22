@@ -3,10 +3,13 @@
 #include "e820.h"
 #include <mm/pmm.h>
 #include <misc.h>
+#include "idt.h"
 
 void __attribute__((noreturn))
 boot_main(uint8_t boot_drive)
 {
+	(void)boot_drive;
+
 	clearwin(COLOR_WHT, COLOR_BLK);
 	set_cursor_pos(0, 0);
 	putstr("\n*** UMBRA BOOTLOADER STAGE2 ***\n", COLOR_GRN, COLOR_BLK); // weird bug where first line starts with a space
@@ -19,29 +22,9 @@ boot_main(uint8_t boot_drive)
 
 	memmap_init();
 	putstr("Init'd bootloader memmap\n", COLOR_GRN, COLOR_BLK);
-	{
-		putstr("\t# entries: ", COLOR_GRN, COLOR_BLK);
-		char res[8];
-		itoa(memmap_entries, res, 10);
-		putstr(res, COLOR_GRN, COLOR_BLK); 
-		putstr("\n", COLOR_GRN, COLOR_BLK);
-	}
-	for (size_t x = 0; x < memmap_entries; ++x) {
-		{
-			putstr("\tbase: 0x", COLOR_GRN, COLOR_BLK);
-			char res[12];
-			itoa(memmap[x].base, res, 16);
-			putstr(res, COLOR_GRN, COLOR_BLK); 
-			putstr(" ", COLOR_GRN, COLOR_BLK);
-		}
-		{
-			putstr("length: 0x", COLOR_GRN, COLOR_BLK);
-			char res[12];
-			itoa(memmap[x].length, res, 16);
-			putstr(res, COLOR_GRN, COLOR_BLK); 
-		}
-		putstr("\n", COLOR_GRN, COLOR_BLK);
-	}
+
+	set_idt();
+	putstr("Set bootloader IDT\n", COLOR_GRN, COLOR_BLK);
 
 	while (1);
 }

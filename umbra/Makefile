@@ -8,8 +8,9 @@ BOOT_ASFLAGS=-c -nostdlib -m32 -I./bootloader/arch/$(ARCH)/
 BOOT_CFLAGS=-c -ffreestanding -std=c23 -m32 -fno-pie -fno-stack-protector -nostdlib -nostdinc -Wall -Wextra -O2 -g -I./bootloader/ 
 BOOT_LDFLAGS=-m elf_i386 
 
-STAGE2_ASM_SOURCES= bootloader/arch/$(ARCH)/core.S bootloader/arch/$(ARCH)/asm.S bootloader/arch/$(ARCH)/int.S
-STAGE2_C_SOURCES= bootloader/arch/$(ARCH)/main.c bootloader/arch/$(ARCH)/vga.c bootloader/arch/$(ARCH)/e820.c bootloader/mm/pmm.c bootloader/misc.c
+STAGE2_ASM_SOURCES= bootloader/arch/$(ARCH)/core.S bootloader/arch/$(ARCH)/asm.S bootloader/arch/$(ARCH)/int.S bootloader/arch/$(ARCH)/isr_vector.S
+STAGE2_C_SOURCES= bootloader/arch/$(ARCH)/main.c bootloader/arch/$(ARCH)/vga.c bootloader/arch/$(ARCH)/e820.c bootloader/mm/pmm.c bootloader/misc.c bootloader/arch/$(ARCH)/idt.c \
+									bootloader/arch/$(ARCH)/exceptions.c
 
 STAGE2_ASM_OBJS := $(STAGE2_ASM_SOURCES:.S=.o)
 STAGE2_C_OBJS := $(STAGE2_C_SOURCES:.c=.o)
