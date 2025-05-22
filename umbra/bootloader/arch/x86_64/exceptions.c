@@ -1,5 +1,5 @@
 #include <types.h>
-#include "vga.h"
+#include <drivers/vga.h>
 #include <misc.h>
 
 static const char *exception_names[] = {

@@ -1,5 +1,5 @@
-#ifndef __DRIVER_VGA_H__
-#define __DRIVER_VGA_H__
+#ifndef __VGA_H__
+#define __VGA_H__
 
 #include <types.h>
 
@@ -57,4 +57,4 @@ void set_cursor_pos(uint8_t x, uint8_t y);
 /* scroll line i.e move cursor down and place leftmost */
 void scroll_line();
 
-#endif /* ifndef __DRIVER_VGA_H__ */
+#endif /* ifndef __VGA_H__ */

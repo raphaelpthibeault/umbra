@@ -1,7 +1,7 @@
 #include "e820.h"
 #include "real.h"
 #include <mm/pmm.h>
-#include "vga.h"
+#include <drivers/vga.h>
 #include <misc.h>
 
 #define MAX_E820_ENTRIES 256

@@ -1,10 +1,10 @@
 #include <mm/pmm.h>
 #include <types.h>
 #include <misc.h>
+#include <drivers/vga.h>
 
 /* TODO: ifdef BIOS and UEFI, and arch as well */
 #include <arch/x86_64/e820.h>
-#include <arch/x86_64/vga.h>
 #include <arch/x86_64/acpi.h>
 
 #define FREE_MEM 0x100000 /* RAM, extended memory ; 00x100000-x00efffff  */

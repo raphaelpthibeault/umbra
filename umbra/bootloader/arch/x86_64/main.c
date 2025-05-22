@@ -1,5 +1,5 @@
 #include <types.h>
-#include "vga.h"
+#include <drivers/vga.h>
 #include "e820.h"
 #include <mm/pmm.h>
 #include <misc.h>

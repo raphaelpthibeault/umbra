@@ -1,6 +1,7 @@
-#include "vga.h"
-#include "cpu.h"
+#include <drivers/vga.h>
 #include <types.h>
+
+#include <arch/x86_64/cpu.h>
 
 volatile vga_char_t *TEXT_AREA = (vga_char_t*) VGA_START;
 
