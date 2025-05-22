@@ -1,5 +1,6 @@
 #include <mm/pmm.h>
 #include <types.h>
+#include <misc.h>
 
 /* TODO: ifdef BIOS and UEFI, and arch as well */
 #include <arch/x86_64/e820.h>
@@ -67,14 +68,13 @@ memmap_init(void)
 		}
 		
 		memmap[memmap_entries] = e820_map[i];
-
 		uint64_t top = memmap[memmap_entries].base + memmap[memmap_entries].length;
 		if (memmap[memmap_entries].type == MEMMAP_USABLE) {
 			if (memmap[memmap_entries].base >= EBDA && memmap[memmap_entries].base < FREE_MEM) {
 				if (top <= FREE_MEM) {
 					continue;
 				}
-				/* let length be the remainder, and move it to the free memory */
+				// let length be the remainder, and move it to the free memory 
 				memmap[memmap_entries].length -= (FREE_MEM - memmap[memmap_entries].base);
 				memmap[memmap_entries].base = FREE_MEM;
 			}
@@ -89,6 +89,7 @@ memmap_init(void)
 	}
 
 	memmap_sanitize_entries(memmap, &memmap_entries, false);
+
 
 	/* I say that the range [first-pag, _bss_end] is the bootloader, which means it's very important that _bss_end is at the end of core.ld */
 	// set do_panic to true 

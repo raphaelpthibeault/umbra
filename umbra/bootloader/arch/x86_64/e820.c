@@ -29,7 +29,6 @@ struct smap_entry {
 void 
 do_e820(void)
 {
-	/* iterate */
 	struct smap_entry *buf = (struct smap_entry *)SCRATCH_ADDR;
 
 	struct int_regs regs;
@@ -38,34 +37,28 @@ do_e820(void)
 	for (size_t i = 0; i < MAX_E820_ENTRIES; ++i) {
 		memset(buf, 0, sizeof(*buf));
 
-
 		regs.flags = 0x200;
 		regs.es = ((uint64_t)&buf->basel) >> 4;
 		regs.edi = ((uint64_t)&buf->basel) & 0xf;
-		//regs.ecx = sizeof(*buf) - sizeof(buf->size); 
-		regs.ecx = 24;
+		regs.ecx = 24; // sizeof (smap,memmap)_entry
 		regs.edx = 0x534d4150;
 		regs.eax = 0xe820;
 
 		rm_int(0x15, &regs);
 
-		if (regs.ebx == 0) {
-			return;	
+		if (regs.ebx == 0 
+				|| (regs.flags & 0x1)
+				|| (regs.eax != 0x534d4150)) {
+			return;
 		}
-
-		
-		if ((regs.flags & 0x1) || regs.eax != 0x534d4150
-				|| regs.ecx < 0x14 || regs.ecx > 0x400) {
-			putstr("[Panic] \n", COLOR_RED, COLOR_BLK); 
-			while(1);
-		} 
 	
 		struct memmap_entry entry;
 		entry.base = ((uint64_t)buf->baseh << 32) | buf->basel;
 		entry.length = ((uint64_t)buf->lengthh << 32) | buf->lengthl;
 		entry.type = buf->type;
+
 		e820_map[i] = entry;
-		e820_entries = ++i;
+		++e820_entries;
 	}
 }
 

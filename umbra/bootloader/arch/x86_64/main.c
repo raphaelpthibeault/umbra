@@ -4,40 +4,6 @@
 #include <mm/pmm.h>
 #include <misc.h>
 
-char* 
-itoa(uint32_t value, char* result, uint8_t base) 
-{
-	// check that the base is valid
-	if (base < 2 || base > 36) { 
-		*result = '\0'; return result; 
-	}
-
-	char* ptr = result, *ptr1 = result, tmp_char;
-	uint64_t tmp_value;
-
-
-	do {
-		tmp_value = value;
-		value /= base;
-		*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
-	} while ( value );
-
-	/*
-	// apply negative sign
-	if (tmp_value < 0) {
-		*ptr++ = '-';
-	}*/
-
-	*ptr-- = '\0';
-	while(ptr1 < ptr) {
-		tmp_char = *ptr;
-		*ptr--= *ptr1;
-		*ptr1++ = tmp_char;
-	}
-
-	return result;
-}
-
 void __attribute__((noreturn))
 boot_main(uint8_t boot_drive)
 {
@@ -58,6 +24,22 @@ boot_main(uint8_t boot_drive)
 		char res[8];
 		itoa(memmap_entries, res, 10);
 		putstr(res, COLOR_GRN, COLOR_BLK); 
+		putstr("\n", COLOR_GRN, COLOR_BLK);
+	}
+	for (size_t x = 0; x < memmap_entries; ++x) {
+		{
+			putstr("\tbase: 0x", COLOR_GRN, COLOR_BLK);
+			char res[12];
+			itoa(memmap[x].base, res, 16);
+			putstr(res, COLOR_GRN, COLOR_BLK); 
+			putstr(" ", COLOR_GRN, COLOR_BLK);
+		}
+		{
+			putstr("length: 0x", COLOR_GRN, COLOR_BLK);
+			char res[12];
+			itoa(memmap[x].length, res, 16);
+			putstr(res, COLOR_GRN, COLOR_BLK); 
+		}
 		putstr("\n", COLOR_GRN, COLOR_BLK);
 	}
 
