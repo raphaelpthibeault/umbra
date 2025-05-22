@@ -2,7 +2,7 @@
 #include "real.h"
 #include <mm/pmm.h>
 #include <drivers/vga.h>
-#include <misc.h>
+#include <lib/misc.h>
 
 #define MAX_E820_ENTRIES 256
 

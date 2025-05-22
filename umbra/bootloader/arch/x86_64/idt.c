@@ -1,6 +1,6 @@
 #include "idt.h"
 #include <types.h>
-#include <misc.h>
+#include <lib/misc.h>
 #include "asm.h"
 
 #define IDT_ENTRIES_SIZE 32

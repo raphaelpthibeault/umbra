@@ -1,4 +1,4 @@
-#include <misc.h>
+#include <lib/misc.h>
 
 void * 
 memset(void *dest, int c, long n) 

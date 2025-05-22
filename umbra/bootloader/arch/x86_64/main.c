@@ -2,7 +2,7 @@
 #include <drivers/vga.h>
 #include "e820.h"
 #include <mm/pmm.h>
-#include <misc.h>
+#include <lib/misc.h>
 #include "idt.h"
 
 void __attribute__((noreturn))

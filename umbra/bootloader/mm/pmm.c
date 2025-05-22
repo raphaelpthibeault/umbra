@@ -1,6 +1,6 @@
 #include <mm/pmm.h>
 #include <types.h>
-#include <misc.h>
+#include <lib/misc.h>
 #include <drivers/vga.h>
 
 /* TODO: ifdef BIOS and UEFI, and arch as well */
