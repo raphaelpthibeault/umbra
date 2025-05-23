@@ -3,6 +3,13 @@
 
 #include <types.h>
 
+#define rm_desegment(seg, off) (((uint32_t)(seg) << 4) + (uint32_t)(off))
+
+/* The scratch buffer used in real mode code.  */
+#define SCRATCH_ADDR 0x68000
+#define SCRATCH_SEG (SCRATCH_ADDR >> 4)
+#define SCRATCH_SIZE 0x9000
+
 struct int_regs {
   uint32_t eax;
   uint16_t es;

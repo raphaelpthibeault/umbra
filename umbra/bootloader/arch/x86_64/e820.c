@@ -9,22 +9,14 @@
 struct memmap_entry e820_map[MAX_E820_ENTRIES];
 size_t e820_entries;
 
-extern char* itoa(uint32_t value, char* result, uint8_t base);
-
-/* The scratch buffer used in real mode code.  */
-#define SCRATCH_ADDR 0x68000
-#define SCRATCH_SEG (SCRATCH_ADDR >> 4)
-#define SCRATCH_SIZE 0x9000
-
 struct smap_entry {
-	uint32_t baseh;
 	uint32_t basel;
-	uint32_t lengthh;
+	uint32_t baseh;
 	uint32_t lengthl;
+	uint32_t lengthh;
 	uint32_t type;
 	uint32_t acpi;
-};
-
+} __attribute__((packed));
 
 void 
 do_e820(void)
@@ -38,8 +30,8 @@ do_e820(void)
 		memset(buf, 0, sizeof(*buf));
 
 		regs.flags = 0x200;
-		regs.es = ((uint64_t)&buf->basel) >> 4;
-		regs.edi = ((uint64_t)&buf->basel) & 0xf;
+		regs.es = ((uint64_t)buf) >> 4;
+		regs.edi = ((uint64_t)buf) & 0xf;
 		regs.ecx = 24; // sizeof (smap,memmap)_entry
 		regs.edx = 0x534d4150;
 		regs.eax = 0xe820;
@@ -56,6 +48,7 @@ do_e820(void)
 		entry.base = ((uint64_t)buf->baseh << 32) | buf->basel;
 		entry.length = ((uint64_t)buf->lengthh << 32) | buf->lengthl;
 		entry.type = buf->type;
+		entry.acpi = buf->acpi;
 
 		e820_map[i] = entry;
 		++e820_entries;

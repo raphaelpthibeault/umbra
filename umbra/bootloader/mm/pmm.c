@@ -385,3 +385,63 @@ memmap_alloc_range(uint64_t base, uint64_t length, uint32_t type, uint32_t overl
 {
 	return memmap_alloc_range_in(memmap, &memmap_entries, base, length, type, overlay_type, do_panic, create_new_entry);	
 }
+
+/* allocates memory, starting the search for free memory from the top, and allocates starting from the top of the entry
+ * makes it a bit easier since the bootloader stuff is at the bottom
+ * */
+void *
+ext_mem_alloc_aligned(size_t count, uint32_t type, size_t alignment, bool allow_high_alloc)
+{
+	count = ALIGN_UP(count, alignment);
+	
+	// int should be fine since memmap_entries is capped at 512
+	for (int i = memmap_entries - 1; i >= 0; --i) {
+		if (memmap[i].type != MEMMAP_USABLE) {
+			continue;
+		}
+
+		uint64_t base = memmap[i].base;
+		uint64_t top = memmap[i].base + memmap[i].length;
+
+		// be sure entry is not > 4 GiB if high alloc not allowed
+		if (top >= 0x100000000 && !allow_high_alloc) {
+			top = 0x100000000;
+			if (base >= top) { // not possible so skip
+				continue;
+			}
+		}	
+
+		// does it fit?
+		uint64_t alloc_base = ALIGN_DOWN(top - (uint64_t)count, PAGE_SIZE);
+		if (alloc_base < base) { // entry is too small
+			continue;	
+		}
+
+		uint64_t aligned_length = top - alloc_base;
+		memmap_alloc_range((uint64_t)alloc_base, (uint64_t)count, type, MEMMAP_USABLE, true, false);
+
+		void *ret;
+
+		if (!allow_high_alloc) {
+			ret = (void *)(size_t)alloc_base;
+			memset(ret, 0, aligned_length);
+		} else {
+			static uint64_t above64_ret;
+			above64_ret = alloc_base;
+			ret = &above64_ret;
+		}
+
+		memmap_sanitize_entries(memmap, &memmap_entries, false);
+		return ret;
+	}
+
+	putstr("[Panic] Could not allocate memory", COLOR_RED, COLOR_BLK);
+	while(1);
+}
+
+void *
+ext_mem_alloc(size_t count)
+{
+	return ext_mem_alloc_aligned(count, MEMMAP_BOOTLOADER_RECLAIMABLE, PAGE_SIZE, false);	
+}
+

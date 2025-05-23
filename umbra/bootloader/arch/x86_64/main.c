@@ -4,6 +4,7 @@
 #include <mm/pmm.h>
 #include <lib/misc.h>
 #include "idt.h"
+#include <drivers/disk.h>
 
 void __attribute__((noreturn))
 boot_main(uint8_t boot_drive)
@@ -24,7 +25,10 @@ boot_main(uint8_t boot_drive)
 	putstr("Init'd bootloader memmap\n", COLOR_GRN, COLOR_BLK);
 
 	set_idt();
-	putstr("Set bootloader IDT\n", COLOR_GRN, COLOR_BLK);
+	putstr("Set bootloader idt\n", COLOR_GRN, COLOR_BLK);
+
+	disk_create_index();
+	putstr("Created disk index\n", COLOR_GRN, COLOR_BLK);
 
 	while (1);
 }
