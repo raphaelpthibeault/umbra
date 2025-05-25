@@ -198,6 +198,8 @@ stage2_sector:
 stage2_sector_high:
 	.long 0
 
+.org 0x1b8 # MBR partition location (byte 440)
+
 /* BIOS magic number */
 .org 0x1fe
 	.byte 0x55

@@ -3,7 +3,7 @@ all:
 
 build: clean 
 	make -C umbra/bootloader bootloader
-	cp umbra/bootloader/umbra.hdd umbra.hdd
+	cp umbra/bootloader/bootloader.hdd umbra.hdd
 
 run: build
 	qemu-system-x86_64 -drive format=raw,file=umbra.hdd -no-reboot

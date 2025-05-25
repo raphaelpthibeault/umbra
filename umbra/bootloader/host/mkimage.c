@@ -11,6 +11,7 @@
 #define CORE_X86_SEGMENT 0x800		/* real mode uses logical addresses 
 																	 * A:B = (A * 0x10) + B */
 #define UMBRA_SIZE_MAX 18446744073709551615UL
+#define MBR_LOC 0x1f8
 
 struct umbra_boot_blocklist {
 	uint64_t start;
@@ -111,10 +112,10 @@ umbra_get_image_size(const char *path)
 	return ret;
 }
 
-char *
+uint8_t *
 umbra_read_image(const char *path)
 {
-	char *img;
+	uint8_t *img;
 	FILE *f;
 	size_t size;
 
@@ -137,30 +138,46 @@ umbra_read_image(const char *path)
 	return img;
 }
 
-void
-umbra_write_image(const char *img, size_t size, FILE *out, const char *outname, const char *imgname)
+static inline int
+set_pos(FILE *stream, uint64_t pos) 
 {
-	umbra_info("writing '%s' into '%s'", imgname, outname);	
+	if (sizeof(long) >= 8) {
+		return fseek(stream, (long)pos, SEEK_SET);
+	} 
+	return -1;
+}
 
-	if (fwrite(img, 1, size, out) != size) {
-		if (!outname) {
-			umbra_error("cannot write to stdout: %s", outname, strerror(errno));
-		} else {
-			umbra_error("cannot write to %s:%s", outname, strerror(errno));
-		}
+/* write buffer to out at location loc */
+void
+umbra_write_out(const uint8_t *_buf, FILE *out, size_t loc, size_t count)
+{
+	uint8_t *buf = _buf;	
+	
+	if (set_pos(out, loc) != 0) {
+		umbra_error("set_pos(): %s", strerror(errno));
+	}
+
+	if (fwrite(buf, 1, count, out) != count) {
+		umbra_error("fwrite(): %s", strerror(errno));
 	}
 }
 
+
 void
-umbra_mkimage(const char *dir, const char *boot_file, const char *core_file)
+umbra_mkimage(const char *out_file)
 {
-	char *boot_img, *boot_path, *core_img, *core_path; // kernel_img, kernel_path
+	char *boot_path, *core_path;
 	size_t boot_size, core_size;
 	uint16_t core_sectors;
 	struct umbra_boot_blocklist *first_block;
+	uint8_t *boot_img, *core_img;
 
-	umbra_info("setting up umbra.hdd...");
-	
+	char boot_file[] = "boot.hdd";
+	char core_file[] = "core.hdd";
+	char dir[] = ""; // current working directory TODO find files logic
+
+	umbra_info("setting up '%s'...", out_file);
+
 	boot_path = get_path(dir, boot_file);
 	boot_size = umbra_get_image_size(boot_path);
 	if (boot_size != DISK_SECTOR_SIZE) {
@@ -182,6 +199,7 @@ umbra_mkimage(const char *dir, const char *boot_file, const char *core_file)
 	core_img = umbra_read_image(core_path);
 	free(core_path);
 
+	/* load via core size, (i.e. just load stage2) since stage3 and kernel will be in file system */
 	core_sectors = ((core_size + DISK_SECTOR_SIZE -1) >> DISK_SECTOR_BITS);
 
 	/* 
@@ -195,8 +213,7 @@ umbra_mkimage(const char *dir, const char *boot_file, const char *core_file)
 																								- sizeof(*first_block));
 
 	/* fill blocklist length */
-	/* starting from 2 * DISK_SECTOR_SIZE, how many sectors are there to load in
-	 * core and kernel? kernel is TODO */
+	/* starting from 2 * DISK_SECTOR_SIZE, how many sectors are there to load in stage2 (core.hdd) */
 	// I'm running an intel processor and current target is x86,
 	//	both are little endian so no byte-swapping before write needed
 	//	x86_64 is little endian, in general
@@ -206,79 +223,58 @@ umbra_mkimage(const char *dir, const char *boot_file, const char *core_file)
 		umbra_error("first_block length is nonzero!");
 	}
 
-	first_block->length = (core_sectors - 1); // + kernel_sectors;
+	first_block->length = (core_sectors - 1);
 	
 	// here I assume all the things are correct, so write to file
 	{
-		FILE *umbra;	
-		const char umbra_img_name[] = "umbra.hdd";
-		char *umbra_path;
+		FILE *out_img;
+		char *out_path;
 
-		umbra_path = get_path(dir, umbra_img_name);
+		out_path = get_path(dir, out_file);
+		out_img = fopen(out_path, "r+b");
 		
-		umbra = fopen(umbra_path, "ab");
-
-		if (!umbra) {
-			umbra_error("cannot open %s:%s", umbra_path, strerror(errno));
+		if (!out_img) {
+			umbra_error("cannot open %s:%s", out_path, strerror(errno));
 		}
 
-		umbra_write_image(boot_img, boot_size, umbra, umbra_img_name, boot_file);
-		umbra_write_image(core_img, core_size, umbra, umbra_img_name, core_file);
-		// umbra_write_image(core_img, core_size, umbra, umbra_img_name);
-		
-		/* 
-		 * QUESTION:
-		 * I obviously have to let the bootloader do the actual loading, but where
-		 * do I put the kernel sector size? Do I put it in the first blocklist?
-		 * I would prefer the sectors to load be separate, but idk
-		 * */
 
-		fclose(umbra);
+		umbra_write_out(boot_img, out_img, 0, boot_size);
+		umbra_write_out(core_img, out_img, 512, core_size);
+
+		fclose(out_img);
 
 		// sanity check
-		size_t umbra_size_expected = boot_size + core_size; // + kernel_size;
-		size_t umbra_size = umbra_get_image_size(umbra_path);
-		if (umbra_size != umbra_size_expected) {
-			umbra_error("umbra_size != umbra_size_expected: '%lu' != '%lu'",
-					umbra_size, umbra_size_expected);
-		} else {
-			umbra_info("bootloader size: '%lu'", umbra_size);
+		size_t size_expected = 0x4000000; // size of raw img file defined in umbra/bootloader/Makefile
+		size_t size = umbra_get_image_size(out_path);
+		if (size != size_expected) {
+			umbra_error("size != size_expected: '%lu' != '%lu'",
+					size, size_expected);
 		}
 
-		free(umbra_path);
+		free(out_path);
 	}
 
 cleanup:
 	free(boot_img);
 	free(core_img);
-	// free(kernel_img);
 }
 
-int main(int argc, char *argv[])
+int 
+main(int argc, char *argv[])
 {
-	char *dir, *boot_file, *core_file;
-	/* argv[1] full path to directory containing boot image, core image and kernel image
-	 * argv[2] boot file name
-	 * argv[3] core file name
-	 * TODO argv[4] kernel file name
+	char *out_file;
+	/* mkimage should just know where boot and core images are 
+	 * argv[1] -> raw (zeroed-out) image file
 	 * */
 
-	if (argc != 4) {
-		umbra_error("Usage: ./mkimage . boot.img core.img");
+	if (argc != 2) {
+		umbra_error("Usage: ./mkimage <path-to-raw-image-file>");
 	}
 
-	umbra_info("mkimage called with: %s, %s, %s", argv[1], argv[2], argv[3]);
+	umbra_info("mkimage called with: %s", argv[1]);
+	out_file = argv[1];
 
-	dir = argv[1];
-	boot_file = argv[2];
-	core_file = argv[3];
-
-	// accept current working directory
-	if (strcmp(dir, ".") == 0) {
-		dir = "";
-	}
-
-	umbra_mkimage(dir, boot_file, core_file);
+	umbra_mkimage(out_file);
 
 	return 0;
 }

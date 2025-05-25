@@ -41,9 +41,12 @@ mkimage: host/mkimage.c
 bootloader: mkimage boot.hdd start.hdd stage2.hdd
 	# prepend start.hdd to core.hdd
 	cat start.hdd stage2.hdd > core.hdd
-	./mkimage . boot.hdd core.hdd
+	# make empty image
+	dd if=/dev/zero bs=1M count=0 seek=64 of=bootloader.hdd
+	# install stage1+stage2 onto the image
+	./mkimage bootloader.hdd
 
 clean:
 	find . -name "*.o" | xargs rm -f
-	rm -f mkimage boot.hdd start.hdd stage2.hdd core.hdd umbra.hdd
+	rm -f mkimage boot.hdd start.hdd stage2.hdd core.hdd bootloader.hdd
 
