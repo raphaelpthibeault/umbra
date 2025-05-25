@@ -159,7 +159,7 @@ umbra_mkimage(const char *dir, const char *boot_file, const char *core_file)
 	uint16_t core_sectors;
 	struct umbra_boot_blocklist *first_block;
 
-	umbra_info("setting up umbra.img...");
+	umbra_info("setting up umbra.hdd...");
 	
 	boot_path = get_path(dir, boot_file);
 	boot_size = umbra_get_image_size(boot_path);
@@ -211,7 +211,7 @@ umbra_mkimage(const char *dir, const char *boot_file, const char *core_file)
 	// here I assume all the things are correct, so write to file
 	{
 		FILE *umbra;	
-		const char umbra_img_name[] = "umbra.img";
+		const char umbra_img_name[] = "umbra.hdd";
 		char *umbra_path;
 
 		umbra_path = get_path(dir, umbra_img_name);

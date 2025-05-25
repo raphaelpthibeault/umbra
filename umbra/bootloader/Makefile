@@ -23,27 +23,27 @@ STAGE2_OBJS := $(STAGE2_ASM_OBJS) $(STAGE2_C_OBJS)
 	$(CC) $(BOOT_CFLAGS) -o $@ $^
 
 
-boot.img: arch/$(ARCH)/boot.o
+boot.hdd: arch/$(ARCH)/boot.o
 	$(LD) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/boot.ld -o $@ $^
 
-# start.img (the first sector of 512 bytes of the core.img, must be linked sepatately)
-start.img: arch/$(ARCH)/start.o
+# start.hdd (the first sector of 512 bytes of the core.hdd, must be linked sepatately)
+start.hdd: arch/$(ARCH)/start.o
 	$(LD) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/start.ld -o $@ $^
 
-# stage2.img (core.img = start.img + stage2.img)
-stage2.img: $(STAGE2_OBJS)
+# stage2.hdd (core.hdd = start.hdd + stage2.hdd)
+stage2.hdd: $(STAGE2_OBJS)
 	$(LD) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/core.ld -o $@ $^
 
 mkimage: host/mkimage.c
 	# use host compiler not cross-compiler
 	gcc -o $@ $^
 
-bootloader: mkimage boot.img start.img stage2.img
-	# prepend start.img to core.img
-	cat start.img stage2.img > core.img
-	./mkimage . boot.img core.img
+bootloader: mkimage boot.hdd start.hdd stage2.hdd
+	# prepend start.hdd to core.hdd
+	cat start.hdd stage2.hdd > core.hdd
+	./mkimage . boot.hdd core.hdd
 
 clean:
 	find . -name "*.o" | xargs rm -f
-	rm -f mkimage boot.img start.img stage2.img core.img umbra.img
+	rm -f mkimage boot.hdd start.hdd stage2.hdd core.hdd umbra.hdd
 

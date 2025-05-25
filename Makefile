@@ -3,11 +3,11 @@ all:
 
 build: clean 
 	make -C umbra/bootloader bootloader
-	cp umbra/bootloader/umbra.img umbra.img
+	cp umbra/bootloader/umbra.hdd umbra.hdd
 
 run: build
-	qemu-system-x86_64 -drive format=raw,file=umbra.img -no-reboot
+	qemu-system-x86_64 -drive format=raw,file=umbra.hdd -no-reboot
 
 clean:
 	make -C umbra/bootloader clean
-	rm -f umbra.img
+	rm -f umbra.hdd
