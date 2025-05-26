@@ -148,7 +148,7 @@ set_pos(FILE *stream, uint64_t pos)
 
 /* write buffer to out at location loc */
 void
-umbra_write_out(const uint8_t *_buf, FILE *out, size_t loc, size_t count)
+umbra_write_out(uint8_t *_buf, FILE *out, size_t loc, size_t count)
 {
 	uint8_t *buf = _buf;	
 	
@@ -188,7 +188,7 @@ umbra_mkimage(const char *out_file)
 
 	char boot_file[] = "boot.hdd";
 	char core_file[] = "core.hdd";
-	char dir[] = ""; // current working directory TODO find files logic
+	char dir[] = "umbra/bootloader/"; // calling from root direcotry, so bootloader directory as working directory TODO ? have some global bin var that umbra/Makefile writes to ?
 
 	umbra_info("setting up '%s'...", out_file);
 
@@ -247,13 +247,12 @@ umbra_mkimage(const char *out_file)
 	// here I assume all the things are correct, so write to file
 	{
 		FILE *out_img;
-		char *out_path;
 
-		out_path = get_path(dir, out_file);
-		out_img = fopen(out_path, "r+b");
+		/* calling mkimage from root, so assume out_file is the raw umbra.img that is also in root */
+		out_img = fopen(out_file, "r+b");
 		
 		if (!out_img) {
-			umbra_error("cannot open %s:%s", out_path, strerror(errno));
+			umbra_error("cannot open %s:%s", out_file, strerror(errno));
 		}
 
 		// keep original MBR from raw file	
@@ -269,13 +268,11 @@ umbra_mkimage(const char *out_file)
 
 		// sanity check
 		size_t size_expected = 0x4000000; // size of raw img file defined in umbra/bootloader/Makefile
-		size_t size = umbra_get_image_size(out_path);
+		size_t size = umbra_get_image_size(out_file);
 		if (size != size_expected) {
 			umbra_error("size != size_expected: '%lu' != '%lu'",
 					size, size_expected);
 		}
-
-		free(out_path);
 	}
 
 cleanup:
