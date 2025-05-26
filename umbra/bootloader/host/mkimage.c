@@ -11,7 +11,6 @@
 #define CORE_X86_SEGMENT 0x800		/* real mode uses logical addresses 
 																	 * A:B = (A * 0x10) + B */
 #define UMBRA_SIZE_MAX 18446744073709551615UL
-#define MBR_LOC 0x1f8
 
 struct umbra_boot_blocklist {
 	uint64_t start;
@@ -130,7 +129,7 @@ umbra_read_image(const char *path)
 	}
 
 	if (fread(img, 1, size, f) != size) {
-		umbra_error("cannot open %s:%s", path, strerror(errno));
+		umbra_error("cannot read %s:%s", path, strerror(errno));
 	}
 
 	fclose(f);
@@ -159,6 +158,21 @@ umbra_write_out(const uint8_t *_buf, FILE *out, size_t loc, size_t count)
 
 	if (fwrite(buf, 1, count, out) != count) {
 		umbra_error("fwrite(): %s", strerror(errno));
+	}
+}
+
+/* read to buffer from out at location loc */
+void
+umbra_read_in(uint8_t *_buf, FILE *out, size_t loc, size_t count)
+{
+	uint8_t *buf = _buf;
+
+	if (set_pos(out, loc) != 0) {
+		umbra_error("set_pos(): %s", strerror(errno));
+	}
+
+	if (fread(buf, 1, count, out) != count) {
+		umbra_error("fread(): %s", strerror(errno));
 	}
 }
 
@@ -224,7 +238,12 @@ umbra_mkimage(const char *out_file)
 	}
 
 	first_block->length = (core_sectors - 1);
-	
+
+	/* 
+	 * here I would put the MBR, but since we're not using that I don't think I care
+	 * I assume the original raw image will have it from some tool like sgdisk
+	 * */
+
 	// here I assume all the things are correct, so write to file
 	{
 		FILE *out_img;
@@ -237,9 +256,14 @@ umbra_mkimage(const char *out_file)
 			umbra_error("cannot open %s:%s", out_path, strerror(errno));
 		}
 
+		// keep original MBR from raw file	
+		uint8_t original_mbr[70];
+		umbra_read_in(original_mbr, out_img, 440, 70);
 
 		umbra_write_out(boot_img, out_img, 0, boot_size);
 		umbra_write_out(core_img, out_img, 512, core_size);
+
+		umbra_write_out(original_mbr, out_img, 440, 70);
 
 		fclose(out_img);
 

@@ -43,6 +43,8 @@ bootloader: mkimage boot.hdd start.hdd stage2.hdd
 	cat start.hdd stage2.hdd > core.hdd
 	# make empty image
 	dd if=/dev/zero bs=1M count=0 seek=64 of=bootloader.hdd
+	# format with sgdisk to create an mbr with "inactive" 1st partition
+	PATH=$$PATH:/usr/sbin:/sbin sgdisk bootloader.hdd -n 1:2048 -t 1:ef00 -m 1
 	# install stage1+stage2 onto the image
 	./mkimage bootloader.hdd
 
