@@ -44,4 +44,6 @@ typedef __PTRDIFF_TYPE__ ptrdiff_t;
 #define true 1
 #define false 0
 
+#define noreturn _Noreturn
+
 #endif /* ifndef __TYPES_H__ */

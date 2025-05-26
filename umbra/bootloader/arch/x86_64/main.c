@@ -6,7 +6,7 @@
 #include "idt.h"
 #include <drivers/disk.h>
 
-void __attribute__((noreturn))
+noreturn void
 boot_main(uint8_t boot_drive)
 {
 	(void)boot_drive;
@@ -29,6 +29,9 @@ boot_main(uint8_t boot_drive)
 
 	disk_create_index();
 	putstr("Created disk index\n", COLOR_GRN, COLOR_BLK);
+
+	// get boot volume
+	// jump to boot_menu
 
 	while (1);
 }

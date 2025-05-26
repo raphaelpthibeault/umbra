@@ -1,4 +1,5 @@
 *.img
 *.hdd
 mkimage
+*.sys
 *.o

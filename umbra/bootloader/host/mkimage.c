@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdnoreturn.h>
 
 #define DISK_SECTOR_SIZE 0x200		/* 512 bytes */
 #define DISK_SECTOR_BITS 9
@@ -19,8 +20,7 @@ struct umbra_boot_blocklist {
 } __attribute__((packed));
 
 
-void
-__attribute__((noreturn))
+noreturn void 
 umbra_exit(int rc)
 {
   exit(rc < 0 ? 1 : rc);
@@ -272,6 +272,12 @@ umbra_mkimage(const char *out_file)
 		if (size != size_expected) {
 			umbra_error("size != size_expected: '%lu' != '%lu'",
 					size, size_expected);
+		}
+
+		// stage3 at 0xf000 so don't be bigger than that
+		if (boot_size + core_size >= 0xf000) {
+			umbra_error("boot_size + core_size: '%lu' is >= '%lu'",
+					boot_size+core_size, 0xf000);
 		}
 	}
 

@@ -9,6 +9,12 @@ build: clean
 	PATH=$$PATH:/usr/sbin:/sbin sgdisk umbra.hdd -n 1:2048 -t 1:ef00 -m 1
 	# install bootloader on raw image
 	./umbra/bootloader/mkimage umbra.hdd
+	# format raw image past bootloader (of size 1M) as FAT32
+	mformat -i umbra.hdd@@1M
+	# add relevant directories 
+	mmd -i umbra.hdd@@1M ::/boot ::/boot/bootloader
+	# copy files to relevant directories (bootloader, TODO: kernel, config file)
+	mcopy -i umbra.hdd@@1M umbra/bootloader/stage3.sys ::/boot/bootloader
 
 run: build
 	qemu-system-x86_64 -drive format=raw,file=umbra.hdd -no-reboot
