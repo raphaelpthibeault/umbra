@@ -445,3 +445,41 @@ ext_mem_alloc(size_t count)
 	return ext_mem_alloc_aligned(count, MEMMAP_BOOTLOADER_RECLAIMABLE, PAGE_SIZE, false);	
 }
 
+void 
+memmap_free(void *ptr, size_t count)
+{
+	count = ALIGN_UP(count, PAGE_SIZE);
+	memmap_alloc_range((uintptr_t)ptr, (uint64_t)count, MEMMAP_USABLE, 0, false, true);
+	memset(ptr, 0, count);
+}
+
+
+void * 
+memmap_realloc(void *oldptr, size_t oldsize, size_t newsize)
+{
+	if (newsize == 0) {
+		if (oldptr != NULL) {
+			memmap_free(oldptr, oldsize);
+		}
+		return NULL;
+	}	
+
+	if (oldptr == NULL) {
+		return ext_mem_alloc(newsize);	
+	}
+
+	/* lazy option 
+	 * the correct way to do this would be to check for contiguous memory 
+	 * but since I know I started allocating from the top of memory it's obviously highly unlikely 
+	 * to have contiguous memory available for anything of appreciable size 
+	 * so, alloc new THEN free old
+	 * */
+	void *newptr = ext_mem_alloc(newsize);
+
+	memcpy(newptr, oldptr, oldsize);
+
+	memmap_free(oldptr, oldsize);
+
+	return newptr;
+}
+

@@ -1,12 +1,27 @@
 #include <lib/misc.h>
 
 void * 
-memset(void *dest, int c, long n) 
+memset(void *dest, int c, size_t n) 
 {
-	__asm__ volatile("cld; rep stosb"
-	             : "=c"((int){0})
-	             : "D"(dest), "a"(c), "c"(n)
-	             : "flags", "memory");
+	uint8_t *pdest = dest;	
+	
+	for (size_t i = 0; i < n; ++i) {
+		pdest[i] = (uint8_t)c;
+	}
+
+	return dest;
+}
+
+void *
+memcpy(void *dest, const void *src, size_t n)
+{
+	uint8_t *pdest = (uint8_t *)dest;
+	const uint8_t *psrc = (const uint8_t *)src;
+
+	for (size_t i = 0; i < n; ++i) {
+		pdest[i] = psrc[i];
+	}
+
 	return dest;
 }
 

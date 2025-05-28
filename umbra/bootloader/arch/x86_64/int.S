@@ -1,15 +1,16 @@
 	/* 
 	 * signature:	
 	 *	void rm_int(uint8_t intnb, struct int_regs *regs)
-	 *		__attribute__((regparm(3)));
-	 * the attribute meaning the first 3 function parameters will in eax, edx, and ecx (respectively) instead of on the stack
-	 *  (assuming they are of intergral type, which pointers are ; yes, in this case there are only 2 function parameters - use 3 anyways, apparently)
+	 *		__attribute__((regparm(2)));
+	 * the attribute regparm(3) meaning the first 3 function parameters will in eax, edx, and ecx (respectively) instead of on the stack
+	 * (in this case only the first 2)
 	 *	regs serves as both an in and out variable 
 	**/
 	.globl rm_int
 rm_int:
 	.code32
 	pushf
+
 	cli
 	popf
 	pushl    %ebp

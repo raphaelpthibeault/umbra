@@ -39,6 +39,6 @@ struct rm_regs {
 } __attribute__((packed));
 
 void rm_int(uint8_t intnb, struct int_regs *regs)
-	__attribute__((regparm(3)));
+	__attribute__((regparm(2)));
 
 #endif // !__REAL_H__

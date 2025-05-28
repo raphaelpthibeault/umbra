@@ -30,8 +30,8 @@ do_e820(void)
 		memset(buf, 0, sizeof(*buf));
 
 		regs.flags = 0x200;
-		regs.es = ((uint64_t)buf) >> 4;
-		regs.edi = ((uint64_t)buf) & 0xf;
+		regs.es = ((uintptr_t)buf) >> 4;
+		regs.edi = ((uintptr_t)buf) & 0xf;
 		regs.ecx = 24; // sizeof (smap,memmap)_entry
 		regs.edx = 0x534d4150;
 		regs.eax = 0xe820;
