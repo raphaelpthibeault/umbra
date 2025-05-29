@@ -25,9 +25,10 @@ typedef struct disk {
 	int drive;
 	disk_device_t dev; /* underlying device */
 	uint64_t total_sectors;
+	uint64_t first_sector;
 	struct partition *partition;
+	int max_partition;
 } disk_t;
-
 
 void disk_create_index(void);
 disk_t *disk_get_by_drive(uint16_t drive);

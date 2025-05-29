@@ -81,11 +81,11 @@ disk_create_index(void)
 		disk_t *disk = ext_mem_alloc(sizeof(struct disk));
 		disk->dev = bios_disk_dev;
 		struct bios_drive_params *drp = (struct bios_drive_params *)SCRATCH_ADDR;
+		memset(drp, 0, sizeof(*drp));
 
 		disk->drive = drive;
 
 		struct int_regs regs = {0};
-		memset(drp, 0, sizeof(*drp));
 
 		regs.eax = 0x4800;
 		regs.edx = drive;
@@ -105,6 +105,9 @@ disk_create_index(void)
 		}
 
 		disk->total_sectors = drp->lba_count;
+		disk->partition = NULL;
+		disk->max_partition = -1;
+		disk->first_sector = 0;
 		
 		/* register disk */
 		disk_list = memmap_realloc(
@@ -123,11 +126,33 @@ disk_create_index(void)
 
 		// TODO: partitions 
 
+		for (int part = 0; ; ++part) { // upper limit on partitions???
+			// loc: disk->first_sector
+			// count  1? the first
+			// iterate...
+			break;
+		}
+	
 
 		++consumed_bda_hdds;
 		if (consumed_bda_hdds >= bda_hdd_count) {
 			break;
 		}
 	}
+}
+
+struct dap {
+	uint16_t size;
+	uint16_t count;
+	uint16_t segment;
+	uint16_t offset;
+	uint64_t total_sectors;
+};
+
+void
+disk_read(disk_t disk, void *buf, uint64_t loc, uint64_t count)
+{
+
+	
 }
 
