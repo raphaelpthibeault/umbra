@@ -10,6 +10,26 @@
 #define MEMMAP_BAD_MEMORY             5
 #define MEMMAP_BOOTLOADER_RECLAIMABLE 0x1000
 
+#define DIV_ROUNDUP(a, b) ({ \
+    __auto_type DIV_ROUNDUP_a = (a); \
+    __auto_type DIV_ROUNDUP_b = (b); \
+    (DIV_ROUNDUP_a + (DIV_ROUNDUP_b - 1)) / DIV_ROUNDUP_b; \
+})
+
+#define ALIGN_UP(x, a) ({ \
+    __auto_type ALIGN_UP_value = (x); \
+    __auto_type ALIGN_UP_align = (a); \
+    ALIGN_UP_value = DIV_ROUNDUP(ALIGN_UP_value, ALIGN_UP_align) * ALIGN_UP_align; \
+    ALIGN_UP_value; \
+})
+
+#define ALIGN_DOWN(x, a) ({ \
+    __auto_type ALIGN_DOWN_value = (x); \
+    __auto_type ALIGN_DOWN_align = (a); \
+    ALIGN_DOWN_value = (ALIGN_DOWN_value / ALIGN_DOWN_align) * ALIGN_DOWN_align; \
+    ALIGN_DOWN_value; \
+})
+
 struct memmap_entry {
 	uint64_t base;
 	uint64_t length;

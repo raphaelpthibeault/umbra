@@ -8,43 +8,13 @@
 #include <arch/x86_64/real.h>
 #include <arch/x86_64/cpu.h>
 
-struct bios_drive_params {
-	uint16_t buf_size;
-	uint16_t info_flags;
-	uint32_t cylinders;
-	uint32_t heads;
-	uint32_t sectors;
-	uint64_t lba_count;
-	uint16_t bytes_per_sector;
-	uint16_t dpte_off;
-	uint16_t dpte_seg;
-} __attribute__((packed));
-
-
-/* device parameter table extension */
-struct dpte {
-    uint16_t io_port;
-    uint16_t control_port;
-    uint8_t head_reg_upper;
-    uint8_t bios_vendor_specific;
-    uint8_t irq_info;
-    uint8_t block_count_multiple;
-    uint8_t dma_info;
-    uint8_t pio_info;
-    uint16_t flags;
-    uint16_t reserved;
-    uint8_t revision;
-    uint8_t checksum;
-} __attribute__((packed));
-
-
 disk_t *disk_list = NULL;
 uint32_t disk_list_idx = 0;
 
 disk_t *
 disk_get_by_drive(uint16_t drive) {
 	for (uint32_t i = 0; i < disk_list_idx; ++i) {
-		if (disk_list[i].drive == drive) {
+		if (disk_list[i].data->drive == drive) {
 			return &disk_list[i];
 		}
 	}	
@@ -77,16 +47,21 @@ disk_create_index(void)
 // can't have a loop with multiple counter variables, what is going on?
 // surely it's because I'm cloberring a register here somewhere
 // error: unsupported size for integer register 
+		struct int_regs regs = {0};
 
-		disk_t *disk = ext_mem_alloc(sizeof(struct disk));
-		disk->dev = bios_disk_dev;
 		struct bios_drive_params *drp = (struct bios_drive_params *)SCRATCH_ADDR;
 		memset(drp, 0, sizeof(*drp));
 
-		disk->drive = drive;
+		disk_t *disk = ext_mem_alloc(sizeof(struct disk));
+		disk->id = drive;
+		disk->dev = bios_disk_dev;
+		disk->log_sector_size = 9; // HDD log_2(512) = 9
 
-		struct int_regs regs = {0};
+		struct bios_disk_data *data = ext_mem_alloc(sizeof(struct bios_disk_data));
+		data->drive = drive;
+		data->flags = FLAG_LBA;
 
+		/* setup extended read */	
 		regs.eax = 0x4800;
 		regs.edx = drive;
 
@@ -108,21 +83,37 @@ disk_create_index(void)
 		disk->partition = NULL;
 		disk->max_partition = -1;
 		disk->first_sector = 0;
+
+		data->cylinders = drp->cylinders;
+		data->heads = drp->heads;
+		data->sectors = drp->sectors;
+
+		disk->data = data;
 		
 		/* register disk */
-		disk_list = memmap_realloc(
-				disk_list, 
-				disk_list_idx * sizeof(struct disk),
-				(disk_list_idx + 1) * sizeof(struct disk)
-		); 
+		struct disk *dp = NULL;
+		{
+			disk_list = memmap_realloc(
+					disk_list, 
+					disk_list_idx * sizeof(struct disk),
+					(disk_list_idx + 1) * sizeof(struct disk)
+			); 
 
-		// get the value of d onto the stack
-		struct disk d;
-		d = *disk;
-		memmap_free(disk, sizeof(struct disk));
-		disk = NULL;
+			/* get disk on stack */
+			struct disk d;
+			d = *disk;
+			memmap_free(disk, sizeof(struct disk));
+			disk = NULL;
 
-		disk_list[disk_list_idx++] = d;
+			disk_list[disk_list_idx] = d;
+			dp = &disk_list[disk_list_idx];
+			++disk_list_idx;
+		}
+		if (dp == NULL) {
+			putstr("[PANIC] disk pointer shenanigans error\n", COLOR_RED, COLOR_BLK);
+			while (1);
+		}
+
 
 		// TODO: partitions 
 
@@ -133,7 +124,6 @@ disk_create_index(void)
 			break;
 		}
 	
-
 		++consumed_bda_hdds;
 		if (consumed_bda_hdds >= bda_hdd_count) {
 			break;
@@ -142,17 +132,120 @@ disk_create_index(void)
 }
 
 struct dap {
-	uint16_t size;
-	uint16_t count;
-	uint16_t segment;
-	uint16_t offset;
-	uint64_t total_sectors;
-};
+	uint8_t length;
+	uint8_t reserved;
+	uint16_t blocks;
+	uint32_t buffer;
+	uint64_t block;
+} __attribute__((packed));
+
+
+/* return number of sectors that can be safely read at a time */
+static size_t
+get_safe_sectors(disk_t *disk, uint64_t sector)
+{
+	// TODO: math 	
+	(void)disk;
+	(void)sector;
+	return 127;
+}
+
+#define READ 0
+#define WRITE 1
+
+static int
+disk_rw_int13(int ah, int drive, struct dap *dap)
+{
+	struct int_regs regs = {0};
+
+	regs.eax = ah << 8;
+	regs.ds = ((uintptr_t)dap & 0xffff0000) >> 4;
+	regs.esi = ((uintptr_t)dap & 0xffff);
+	regs.edx = drive;
+	regs.flags = 0x200;
+
+	rm_int(0x13, &regs);
+
+	return (regs.eax >> 8) & 0xff;
+}
+
+static void
+disk_rw(int cmd, disk_t *disk, uint64_t sector, size_t size, unsigned segment)
+{
+	struct bios_disk_data *data = disk->data;
+
+	struct dap *dap = (struct dap *)(SCRATCH_ADDR + (size << disk->log_sector_size));
+	dap->length = sizeof(*dap);
+	dap->reserved = 0;
+	dap->blocks = size;
+	dap->buffer = segment << 16; /* recall format SEG:ADDR */
+	dap->block = sector;
+	
+	if (disk_rw_int13(cmd + 0x42, data->drive, dap)) {
+		putstr("[PANIC] Couldn't read\n", COLOR_RED, COLOR_BLK);
+		while (1);
+	}
+}
+
+void 
+disk_read(disk_t *disk, uint64_t start /* bytes */, size_t size /* bytes */, void *buf)
+{
+	/* let's say we read and cache 16 sectors at a time (completely arbitrary) */
+	uint64_t read_length = 16;
+	uint64_t cache_size = read_length * 512;
+	uint8_t *cache = ext_mem_alloc(cache_size);
+	memset(cache, 0, cache_size);
+
+	uint64_t read_bytes = 0;
+
+	uint64_t bottom = ALIGN_DOWN(start, 512);
+	uint64_t top = ALIGN_UP(start+size, 512);
+	uint64_t total_bytes = (top - bottom);
+
+	while (read_bytes < size) {
+		// should probably memset cache but I think we're fine ?
+		uint64_t sectors = (total_bytes - read_bytes) / 512;
+		uint64_t sector = (bottom + read_bytes) / 512;
+
+		if (sectors > read_length) {
+			sectors = read_length;			
+		}
+
+		disk_read_sectors(disk, sector, sectors, cache);
+	
+		// copy relevant cache to buf
+		uint64_t offset = (start + read_bytes) % cache_size;
+		uint64_t chunk = size - read_bytes;
+		if (chunk > cache_size - offset) {
+			chunk = cache_size - offset;
+		}
+
+		memcpy(buf + read_bytes, &cache[offset], chunk);
+		
+		read_bytes += chunk;
+	}
+
+	memmap_free(cache, cache_size);	
+
+}
 
 void
-disk_read(disk_t disk, void *buf, uint64_t loc, uint64_t count)
+disk_read_sectors(disk_t *disk, uint64_t sector, size_t sectors, void *buf)
 {
+	while (sectors) {
+		size_t len;
 
-	
+		len = get_safe_sectors(disk, sector);
+		if (len > sectors) {
+			len = sectors;
+		}
+		
+		disk_rw(READ, disk, sector, len, SCRATCH_SEG);
+		memcpy(buf, (void *)SCRATCH_ADDR, len << disk->log_sector_size);
+
+		buf += len << disk->log_sector_size;
+		sector += len;
+		sectors -= len;
+	}
 }
 
