@@ -5,6 +5,7 @@
 
 void *memset(void *dest, int c, size_t n);
 void *memcpy(void *dest, const void *src, size_t n);
+int memcmp(const void *a, const void *b, size_t n);
 char *itoa(uint32_t value, char* result, uint8_t base);
 
 #endif // !__MISC_H__

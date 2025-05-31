@@ -2,7 +2,8 @@
 #define __DISK_H__
 
 #include <types.h>
-#include <lib/partition.h>
+
+struct partition;
 
 #define FLAG_LBA	1
 
@@ -71,6 +72,7 @@ typedef struct disk {
 void disk_create_index(void);
 disk_t *disk_get_by_drive(uint16_t drive);
 
+void disk_read(disk_t *disk, uint64_t start /* bytes */, size_t size /* bytes */, void *buf);
 void disk_read_sectors(disk_t *disk, uint64_t sector, size_t sectors, void *buf);
 
 #endif // !__DISK_H__

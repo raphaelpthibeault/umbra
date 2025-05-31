@@ -3,21 +3,18 @@
 
 #include <types.h>
 #include <lib/guid.h>
+#include <drivers/disk.h>
 
-typedef struct partition_map {
-	struct partition_map *next;
-	struct partition_map **prev;
-	const char *name;
-} partition_map_t;
+#define NO_PARTITION  (-1)
+#define INVALID_TABLE (-2)
+#define END_OF_TABLE  (-3)
 
 struct partition {
 	int number;
-	uint64_t start; /* start relative to parent */
-	uint64_t length; /* length in number of sectors */
-	uint64_t offset; /* offset of the partition table */
-	int index; /* index in partition table */
-	struct partition *parent; /* parent partition (physically contains this partition) */
-	partition_map_t partmap;
+	uint64_t first_sector;
+	uint64_t total_sectors; /* length in number of sectors */
 };
+
+int partitions_get(disk_t *disk);
 
 #endif // !__PARTITION_H__

@@ -22,10 +22,7 @@ boot_main(uint8_t boot_drive)
 	memmap_init();
 	set_idt();
 	disk_create_index();
-	putstr("Created disk index\n", COLOR_GRN, COLOR_BLK);
 
-
-	
 	boot_disk = disk_get_by_drive(boot_drive);
 	if (boot_disk == NULL) {
 		putstr("[Panic] Could not get boot disk!\n", COLOR_RED, COLOR_BLK);
@@ -47,7 +44,6 @@ boot_main(uint8_t boot_drive)
 		itoa(boot_disk->total_sectors * 512, res, 16);
 		putstr(res, COLOR_GRN, COLOR_BLK);
 	}
-	putstr("\n", COLOR_GRN, COLOR_BLK);
 
 	// jump to boot_menu
 

@@ -113,17 +113,12 @@ disk_create_index(void)
 			putstr("[PANIC] disk pointer shenanigans error\n", COLOR_RED, COLOR_BLK);
 			while (1);
 		}
-
-
-		// TODO: partitions 
-
-		for (int part = 0; ; ++part) { // upper limit on partitions???
-			// loc: disk->first_sector
-			// count  1? the first
-			// iterate...
-			break;
+		
+		if(partitions_get(dp) != END_OF_TABLE) {
+			putstr("[PANIC] partitions_get()\n", COLOR_RED, COLOR_BLK);
+			while (1);
 		}
-	
+
 		++consumed_bda_hdds;
 		if (consumed_bda_hdds >= bda_hdd_count) {
 			break;
@@ -161,6 +156,7 @@ disk_rw_int13(int ah, int drive, struct dap *dap)
 	regs.eax = ah << 8;
 	regs.ds = ((uintptr_t)dap & 0xffff0000) >> 4;
 	regs.esi = ((uintptr_t)dap & 0xffff);
+
 	regs.edx = drive;
 	regs.flags = 0x200;
 
@@ -174,7 +170,7 @@ disk_rw(int cmd, disk_t *disk, uint64_t sector, size_t size, unsigned segment)
 {
 	struct bios_disk_data *data = disk->data;
 
-	struct dap *dap = (struct dap *)(SCRATCH_ADDR + (size << disk->log_sector_size));
+	struct dap *dap = (struct dap *)(SCRATCH_ADDR + (data->sectors << disk->log_sector_size));
 	dap->length = sizeof(*dap);
 	dap->reserved = 0;
 	dap->blocks = size;
@@ -213,20 +209,18 @@ disk_read(disk_t *disk, uint64_t start /* bytes */, size_t size /* bytes */, voi
 
 		disk_read_sectors(disk, sector, sectors, cache);
 	
-		// copy relevant cache to buf
 		uint64_t offset = (start + read_bytes) % cache_size;
+
 		uint64_t chunk = size - read_bytes;
 		if (chunk > cache_size - offset) {
 			chunk = cache_size - offset;
 		}
 
 		memcpy(buf + read_bytes, &cache[offset], chunk);
-		
 		read_bytes += chunk;
 	}
 
 	memmap_free(cache, cache_size);	
-
 }
 
 void
