@@ -11,6 +11,15 @@
 disk_t *disk_list = NULL;
 uint32_t disk_list_idx = 0;
 
+
+struct dap {
+	uint8_t length;
+	uint8_t reserved;
+	uint16_t blocks;
+	uint32_t buffer;
+	uint64_t block;
+} __attribute__((packed));
+
 disk_t *
 disk_get_by_drive(uint16_t drive) {
 	for (uint32_t i = 0; i < disk_list_idx; ++i) {
@@ -19,6 +28,48 @@ disk_get_by_drive(uint16_t drive) {
 		}
 	}	
 	return NULL;
+}
+
+static void
+test_disk_read(disk_t *disk, uint64_t loc, uint64_t size, void *buf) 
+{
+	/* memory layout
+	 *            [sectors to read][dap]
+	 * SCRATCH_ADDR
+	 *
+	 * SCRATCH_ADDR = 0x68000
+	 * SCRATCH_SEG = 0x6800
+	 * */
+	
+	uint64_t bottom = ALIGN_DOWN(loc, 512);
+	uint64_t top = ALIGN_UP(loc+size, 512);
+	uint64_t total_bytes = (top - bottom);
+	uint64_t sectors_to_read = (total_bytes) / 512;
+
+	struct dap *dap = (struct dap *)(SCRATCH_ADDR + total_bytes);
+	dap->length = sizeof(struct dap); /* size */
+	dap->reserved = 0; /* reserved byte */
+	dap->blocks = sectors_to_read; /* number of sectors */
+	dap->buffer = SCRATCH_SEG << 0x10; /* address of buffer, recall SEG:ADDR */
+	dap->block = loc >> disk->log_sector_size; /* absolute (start) sector to read */
+
+	struct int_regs regs = {0};
+
+	regs.eax = 0x4200;
+	regs.ds = ((uintptr_t)dap & 0xffff0000) >> 4;
+	regs.esi = ((uintptr_t)dap & 0xffff);
+
+	regs.edx = disk->data->drive;
+	regs.flags = 0x200;
+
+	rm_int(0x13, &regs);
+
+	if ((regs.eax >> 8) & 0xff) {
+		putstr("[PANIC] flags\n", COLOR_RED, COLOR_BLK);
+		while (1);
+	}
+
+	memcpy(buf, (void *)SCRATCH_ADDR, size);
 }
 
 void 
@@ -114,10 +165,24 @@ disk_create_index(void)
 			while (1);
 		}
 		
+		uint8_t first_sector[512];
+		test_disk_read(dp, 0, 512, &first_sector);
+		
+		// little endian
+		uint16_t magic = (first_sector[511] << 8) + first_sector[510];
+		putstr("bios magic: 0x", COLOR_GRN, COLOR_BLK);
+		{
+			char res[16];
+			itoa(magic, res, 16);
+			putstr(res, COLOR_GRN, COLOR_BLK);
+		}
+		putstr("\n", COLOR_GRN, COLOR_BLK);
+
+		/*
 		if(partitions_get(dp) != END_OF_TABLE) {
 			putstr("[PANIC] partitions_get()\n", COLOR_RED, COLOR_BLK);
 			while (1);
-		}
+		}*/
 
 		++consumed_bda_hdds;
 		if (consumed_bda_hdds >= bda_hdd_count) {
@@ -125,14 +190,6 @@ disk_create_index(void)
 		}
 	}
 }
-
-struct dap {
-	uint8_t length;
-	uint8_t reserved;
-	uint16_t blocks;
-	uint32_t buffer;
-	uint64_t block;
-} __attribute__((packed));
 
 
 /* return number of sectors that can be safely read at a time */
