@@ -8,9 +8,11 @@
 #include <arch/x86_64/real.h>
 #include <arch/x86_64/cpu.h>
 
+#define READ 0
+#define WRITE 1
+
 disk_t *disk_list = NULL;
 uint32_t disk_list_idx = 0;
-
 
 struct dap {
 	uint8_t length;
@@ -30,8 +32,73 @@ disk_get_by_drive(uint16_t drive) {
 	return NULL;
 }
 
+/* return number of sectors that can be safely read at a time */
+static size_t
+get_safe_sectors(disk_t *disk, uint64_t start_sector)
+{
+	// TODO: math 	
+	(void)disk;
+	(void)start_sector;
+	return 127;
+}
+
+static int
+disk_rw_int13(int ah, int drive, struct dap *dap)
+{
+	struct int_regs regs = {0};
+
+	regs.eax = ah << 8;
+	regs.ds = ((uintptr_t)dap & 0xffff0000) >> 4;
+	regs.esi = ((uintptr_t)dap & 0xffff);
+
+	regs.edx = drive;
+	regs.flags = 0x200;
+
+	rm_int(0x13, &regs);
+
+	return ((regs.eax >> 8) & 0xff);
+}
+
 static void
-test_disk_read(disk_t *disk, uint64_t loc, uint64_t size, void *buf) 
+disk_rw(int cmd, disk_t *disk, uint64_t start_sector, size_t total_bytes, size_t sectors_to_read, unsigned segment)
+{
+	struct dap *dap = (struct dap *)(SCRATCH_ADDR + total_bytes);
+	dap->length = sizeof(struct dap); // size 
+	dap->reserved = 0; // reserved byte 
+	dap->blocks = sectors_to_read; // number of sectors 
+	//dap->buffer = SCRATCH_SEG << 0x10; // address of buffer, recall SEG:ADDR - BIG ASSUMPTION: NO OFFSET
+	dap->buffer = segment << 0x10;
+	//dap->block = loc >> disk->log_sector_size; // absolute (start) sector to read 
+	dap->block = start_sector;
+
+	if (disk_rw_int13(cmd + 0x42, disk->data->drive, dap)) {
+		putstr("[PANIC] Couldn't read\n", COLOR_RED, COLOR_BLK);
+		while (1);
+	}
+}
+
+static void
+disk_read_sectors(disk_t *disk, uint64_t start_sector, size_t sectors_to_read, void *buf)
+{
+	while (sectors_to_read != 0) {
+		size_t len = get_safe_sectors(disk, start_sector) ;
+		if (len > sectors_to_read) {
+			len = sectors_to_read;
+		}
+
+		size_t total_bytes = len << disk->log_sector_size;
+
+		disk_rw(READ, disk, start_sector, total_bytes, len, SCRATCH_SEG);
+		memcpy(buf, (void *)SCRATCH_ADDR, total_bytes);
+
+		buf += total_bytes;
+		start_sector += len;
+		sectors_to_read -= len;
+	}
+}
+
+void 
+disk_read(disk_t *disk, uint64_t loc, uint64_t size, void *buf)
 {
 	/* memory layout
 	 *            [sectors to read][dap]
@@ -44,32 +111,40 @@ test_disk_read(disk_t *disk, uint64_t loc, uint64_t size, void *buf)
 	uint64_t bottom = ALIGN_DOWN(loc, 512);
 	uint64_t top = ALIGN_UP(loc+size, 512);
 	uint64_t total_bytes = (top - bottom);
-	uint64_t sectors_to_read = (total_bytes) / 512;
 
-	struct dap *dap = (struct dap *)(SCRATCH_ADDR + total_bytes);
-	dap->length = sizeof(struct dap); /* size */
-	dap->reserved = 0; /* reserved byte */
-	dap->blocks = sectors_to_read; /* number of sectors */
-	dap->buffer = SCRATCH_SEG << 0x10; /* address of buffer, recall SEG:ADDR */
-	dap->block = loc >> disk->log_sector_size; /* absolute (start) sector to read */
+	/* let's say we read and cache 16 sectors at a time (completely arbitrary) */
+	uint64_t read_length = 16;
+	uint64_t cache_size = read_length << disk->log_sector_size;
+	uint8_t *cache = ext_mem_alloc(cache_size);
+	memset(cache, 0, cache_size);
 
-	struct int_regs regs = {0};
+	uint64_t progress = 0;
+	while (progress < size) {
+		uint64_t start_sector = (loc + progress) >> disk->log_sector_size;
+		uint64_t sectors_to_read = (total_bytes - progress) >> disk->log_sector_size;
 
-	regs.eax = 0x4200;
-	regs.ds = ((uintptr_t)dap & 0xffff0000) >> 4;
-	regs.esi = ((uintptr_t)dap & 0xffff);
+		if (sectors_to_read > read_length) {
+			sectors_to_read = read_length;
+		}
 
-	regs.edx = disk->data->drive;
-	regs.flags = 0x200;
+		disk_read_sectors(disk, start_sector, sectors_to_read, cache);
+		
+		uint64_t offset = (loc + progress) % (sectors_to_read << disk->log_sector_size);
+		uint64_t read_end = (start_sector + sectors_to_read) << disk->log_sector_size;
+		uint64_t chunk_end = loc + size;
 
-	rm_int(0x13, &regs);
+		if (chunk_end > read_end) {
+			chunk_end = read_end;
+		}
 
-	if ((regs.eax >> 8) & 0xff) {
-		putstr("[PANIC] flags\n", COLOR_RED, COLOR_BLK);
-		while (1);
+		uint64_t offset_right = read_end - chunk_end;
+		uint64_t chunk = (sectors_to_read << disk->log_sector_size) - (offset + offset_right);
+
+		memcpy(buf + progress, &cache[offset], chunk);
+		progress += chunk;
 	}
 
-	memcpy(buf, (void *)SCRATCH_ADDR, size);
+	memmap_free(cache, cache_size);
 }
 
 void 
@@ -165,11 +240,11 @@ disk_create_index(void)
 			while (1);
 		}
 		
-		uint8_t first_sector[512];
-		test_disk_read(dp, 0, 512, &first_sector);
+		uint8_t first_sector[2];
+		disk_read(dp, 510, 2, &first_sector);
 		
 		// little endian
-		uint16_t magic = (first_sector[511] << 8) + first_sector[510];
+		uint16_t magic = (first_sector[1] << 8) + first_sector[0];
 		putstr("bios magic: 0x", COLOR_GRN, COLOR_BLK);
 		{
 			char res[16];
@@ -178,125 +253,15 @@ disk_create_index(void)
 		}
 		putstr("\n", COLOR_GRN, COLOR_BLK);
 
-		/*
 		if(partitions_get(dp) != END_OF_TABLE) {
-			putstr("[PANIC] partitions_get()\n", COLOR_RED, COLOR_BLK);
+			putstr("[PANIC] partitions_get() returned 0 partitions\n", COLOR_RED, COLOR_BLK);
 			while (1);
-		}*/
+		}
 
 		++consumed_bda_hdds;
 		if (consumed_bda_hdds >= bda_hdd_count) {
 			break;
 		}
-	}
-}
-
-
-/* return number of sectors that can be safely read at a time */
-static size_t
-get_safe_sectors(disk_t *disk, uint64_t sector)
-{
-	// TODO: math 	
-	(void)disk;
-	(void)sector;
-	return 127;
-}
-
-#define READ 0
-#define WRITE 1
-
-static int
-disk_rw_int13(int ah, int drive, struct dap *dap)
-{
-	struct int_regs regs = {0};
-
-	regs.eax = ah << 8;
-	regs.ds = ((uintptr_t)dap & 0xffff0000) >> 4;
-	regs.esi = ((uintptr_t)dap & 0xffff);
-
-	regs.edx = drive;
-	regs.flags = 0x200;
-
-	rm_int(0x13, &regs);
-
-	return (regs.eax >> 8) & 0xff;
-}
-
-static void
-disk_rw(int cmd, disk_t *disk, uint64_t sector, size_t size, unsigned segment)
-{
-	struct bios_disk_data *data = disk->data;
-
-	struct dap *dap = (struct dap *)(SCRATCH_ADDR + (data->sectors << disk->log_sector_size));
-	dap->length = sizeof(*dap);
-	dap->reserved = 0;
-	dap->blocks = size;
-	dap->buffer = segment << 16; /* recall format SEG:ADDR */
-	dap->block = sector;
-	
-	if (disk_rw_int13(cmd + 0x42, data->drive, dap)) {
-		putstr("[PANIC] Couldn't read\n", COLOR_RED, COLOR_BLK);
-		while (1);
-	}
-}
-
-void 
-disk_read(disk_t *disk, uint64_t start /* bytes */, size_t size /* bytes */, void *buf)
-{
-	/* let's say we read and cache 16 sectors at a time (completely arbitrary) */
-	uint64_t read_length = 16;
-	uint64_t cache_size = read_length * 512;
-	uint8_t *cache = ext_mem_alloc(cache_size);
-	memset(cache, 0, cache_size);
-
-	uint64_t read_bytes = 0;
-
-	uint64_t bottom = ALIGN_DOWN(start, 512);
-	uint64_t top = ALIGN_UP(start+size, 512);
-	uint64_t total_bytes = (top - bottom);
-
-	while (read_bytes < size) {
-		// should probably memset cache but I think we're fine ?
-		uint64_t sectors = (total_bytes - read_bytes) / 512;
-		uint64_t sector = (bottom + read_bytes) / 512;
-
-		if (sectors > read_length) {
-			sectors = read_length;			
-		}
-
-		disk_read_sectors(disk, sector, sectors, cache);
-	
-		uint64_t offset = (start + read_bytes) % cache_size;
-
-		uint64_t chunk = size - read_bytes;
-		if (chunk > cache_size - offset) {
-			chunk = cache_size - offset;
-		}
-
-		memcpy(buf + read_bytes, &cache[offset], chunk);
-		read_bytes += chunk;
-	}
-
-	memmap_free(cache, cache_size);	
-}
-
-void
-disk_read_sectors(disk_t *disk, uint64_t sector, size_t sectors, void *buf)
-{
-	while (sectors) {
-		size_t len;
-
-		len = get_safe_sectors(disk, sector);
-		if (len > sectors) {
-			len = sectors;
-		}
-		
-		disk_rw(READ, disk, sector, len, SCRATCH_SEG);
-		memcpy(buf, (void *)SCRATCH_ADDR, len << disk->log_sector_size);
-
-		buf += len << disk->log_sector_size;
-		sector += len;
-		sectors -= len;
 	}
 }
 

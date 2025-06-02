@@ -1,16 +1,16 @@
 ARCH=x86_64
 
-LD= $(ARCH)-elf-ld
 CC= $(ARCH)-elf-gcc
 OBJCOPY= $(ARCH)-elf-objcopy
 
 BOOT_ASFLAGS=-c -nostdlib -m32 -I./arch/$(ARCH)/
 BOOT_CFLAGS=-c -ffreestanding -std=c23 -m32 -fno-pie -fno-stack-protector -nostdlib -nostdinc -Wall -Wextra -ffreestanding -fno-strict-aliasing -O2 -g -I./ 
-BOOT_LDFLAGS=-m elf_i386 
+BOOT_LDFLAGS=-m32 -nostdlib -Wl,-m,elf_i386
+
 
 STAGE2_ASM_SOURCES= arch/$(ARCH)/core.S arch/$(ARCH)/asm.S arch/$(ARCH)/int.S arch/$(ARCH)/isr_vector.S
 STAGE2_C_SOURCES= arch/$(ARCH)/main.c drivers/vga.c arch/$(ARCH)/e820.c mm/pmm.c lib/misc.c arch/$(ARCH)/idt.c \
-									  arch/$(ARCH)/exceptions.c drivers/disk.c lib/partition.c
+ arch/$(ARCH)/exceptions.c drivers/disk.c lib/partition.c lib/arithmetic64.c
 
 STAGE3_ASM_SOURCES= arch/$(ARCH)/boot_menu.S
 STAGE3_C_SOURCES= common/boot_menu.c
@@ -32,19 +32,19 @@ STAGE3_OBJS := $(STAGE3_ASM_OBJS) $(STAGE3_C_OBJS)
 
 
 boot.hdd: arch/$(ARCH)/boot.o
-	$(LD) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/boot.ld -o $@ $^
+	$(CC) $(BOOT_LDFLAGS) -v -N -T arch/$(ARCH)/boot.ld -o $@ $^
 
 # start.hdd (the first sector of 512 bytes of the core.hdd, must be linked sepatately)
 start.hdd: arch/$(ARCH)/start.o
-	$(LD) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/start.ld -o $@ $^
+	$(CC) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/start.ld -o $@ $^
 
 # stage2.hdd (core.hdd = start.hdd + stage2.hdd)
 stage2.hdd: $(STAGE2_OBJS)
-	$(LD) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/core.ld -o $@ $^
+	$(CC) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/core.ld -o $@ $^
 
 # the boot menu
 stage3.sys: $(STAGE3_OBJS)
-	$(LD) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/stage3.ld -o $@ $^
+	$(CC) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/stage3.ld -o $@ $^
 
 mkimage: host/mkimage.c
 	# use host compiler not cross-compiler

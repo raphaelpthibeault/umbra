@@ -10,14 +10,11 @@ is_valid_mbr(disk_t *disk)
 {
 	uint8_t mbr[70];
 	uint8_t hint8;
-	uint16_t hint16;
+	uint8_t hint16[2];
 	char hintc[64];
 
 	disk_read(disk, 440, 70, &mbr);
 	
-	putstr("MBR:\n", COLOR_GRN, COLOR_BLK);
-	putstr(mbr, COLOR_GRN, COLOR_BLK);
-	putstr("\n", COLOR_GRN, COLOR_BLK);
 	/* obviously this is loopable but since it's just 4 iterations I'll unroll it manually */
 
 	hint8 = mbr[6]; // 446
@@ -67,8 +64,10 @@ is_valid_mbr(disk_t *disk)
 		return false;
 	}
 
-	disk_read(disk, 1080, sizeof(uint16_t), &hint16);
-	if (hint16 == 0xef53) { // ext2 or ext4
+	disk_read(disk, 1080, 2, &hint16);
+
+	// little endian
+	if ((hint16[1] << 8) + hint16[0] == 0xef53) { // ext2 or ext4
 		return false;
 	}
 
@@ -102,7 +101,7 @@ partitions_get(disk_t *disk)
 		uint64_t entry_offset = 0x1be + (partition * sizeof(struct mbr_entry));
 		disk_read(disk, entry_offset, sizeof(struct mbr_entry), &entry);
 
-		if (entry.type != 0x0f && entry.type != 0x05) {
+		if (entry.type == 0x0) {
 			continue;
 		}
 
@@ -122,6 +121,7 @@ partitions_get(disk_t *disk)
 	if (count == 0) {
 		memmap_free(parts, sizeof(struct partition));
 		parts = NULL;
+		return NO_PARTITION;
 	}
 
 	putstr("Drive: 0x", COLOR_GRN, COLOR_BLK);
@@ -136,7 +136,7 @@ partitions_get(disk_t *disk)
 		itoa(count, res, 10);
 		putstr(res, COLOR_GRN, COLOR_BLK);
 	}
-	putstr(" partitions\n", COLOR_GRN, COLOR_BLK);
+	putstr(" partition(s)\n", COLOR_GRN, COLOR_BLK);
 
 	disk->max_partition = count;
 	disk->partition = parts;
