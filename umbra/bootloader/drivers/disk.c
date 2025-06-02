@@ -66,9 +66,7 @@ disk_rw(int cmd, disk_t *disk, uint64_t start_sector, size_t total_bytes, size_t
 	dap->length = sizeof(struct dap); // size 
 	dap->reserved = 0; // reserved byte 
 	dap->blocks = sectors_to_read; // number of sectors 
-	//dap->buffer = SCRATCH_SEG << 0x10; // address of buffer, recall SEG:ADDR - BIG ASSUMPTION: NO OFFSET
 	dap->buffer = segment << 0x10;
-	//dap->block = loc >> disk->log_sector_size; // absolute (start) sector to read 
 	dap->block = start_sector;
 
 	if (disk_rw_int13(cmd + 0x42, disk->data->drive, dap)) {

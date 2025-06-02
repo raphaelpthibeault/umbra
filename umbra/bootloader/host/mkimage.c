@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdnoreturn.h>
+#include <stdbool.h>
 
 #define DISK_SECTOR_SIZE 0x200		/* 512 bytes */
 #define DISK_SECTOR_BITS 9
@@ -18,7 +19,6 @@ struct umbra_boot_blocklist {
 	uint16_t length;
 	uint16_t segment;
 } __attribute__((packed));
-
 
 noreturn void 
 umbra_exit(int rc)
@@ -176,7 +176,6 @@ umbra_read_in(uint8_t *_buf, FILE *out, size_t loc, size_t count)
 	}
 }
 
-
 void
 umbra_mkimage(const char *out_file)
 {
@@ -244,41 +243,83 @@ umbra_mkimage(const char *out_file)
 	 * I assume the original raw image will have it from some tool like sgdisk
 	 * */
 
-	// here I assume all the things are correct, so write to file
-	{
-		FILE *out_img;
+	// check bios magic	(little endian)
+	uint16_t magic = (boot_img[511] << 8) + boot_img[510];
+	if (magic != 0xaa55) {
+		umbra_error("bios magic not 0xaa55");
+	}
 
-		/* calling mkimage from root, so assume out_file is the raw umbra.img that is also in root */
-		out_img = fopen(out_file, "r+b");
-		
-		if (!out_img) {
-			umbra_error("cannot open %s:%s", out_file, strerror(errno));
-		}
+	FILE *out_img;
 
-		// keep original MBR from raw file	
-		uint8_t original_mbr[70];
-		umbra_read_in(original_mbr, out_img, 440, 70);
+	/* calling mkimage from root, so assume out_file is the raw umbra.img that is also in root */
+	out_img = fopen(out_file, "r+b");
+	
+	if (!out_img) {
+		umbra_error("cannot open %s:%s", out_file, strerror(errno));
+	}
 
-		umbra_write_out(boot_img, out_img, 0, boot_size);
-		umbra_write_out(core_img, out_img, 512, core_size);
+	/* check MBR partitions, assume out_img has MBR partitions from some tool like sgdisk */
+	bool any_active = false;
 
-		umbra_write_out(original_mbr, out_img, 440, 70);
+	uint8_t hint8;
+	umbra_read_in(&hint8, out_img, 0x1be + 0x04, sizeof(uint8_t));
+	if (hint8 != 0x00 && hint8 != 0x80) {
+		// force MBR, this is likely a EFI partition, 0xef
+		hint8 &= 0x80;
+		umbra_write_out(&hint8, out_img, 0x1be + 0x04, sizeof(uint8_t));
+	}
+	any_active = any_active || (hint8 & 0x80) != 0;
 
-		fclose(out_img);
+	umbra_read_in(&hint8, out_img, 0x1ce + 0x04, sizeof(uint8_t));
+	if (hint8 != 0x00 && hint8 != 0x80) {
+		hint8 &= 0x80;
+		umbra_write_out(&hint8, out_img, 0x1ce + 0x04, sizeof(uint8_t));
+	}
+	any_active = any_active || (hint8 & 0x80) != 0;
 
-		// sanity check
-		size_t size_expected = 0x4000000; // size of raw img file defined in umbra/bootloader/Makefile
-		size_t size = umbra_get_image_size(out_file);
-		if (size != size_expected) {
-			umbra_error("size != size_expected: '%lu' != '%lu'",
-					size, size_expected);
-		}
+	umbra_read_in(&hint8, out_img, 0x1de + 0x04, sizeof(uint8_t));
+	if (hint8 != 0x00 && hint8 != 0x80) {
+		hint8 &= 0x80;
+		umbra_write_out(&hint8, out_img, 0x1de + 0x04, sizeof(uint8_t));
+	}
+	any_active = any_active || (hint8 & 0x80) != 0;
 
-		// stage3 at 0xf000 so don't be bigger than that
-		if (boot_size + core_size >= 0xf000) {
-			umbra_error("boot_size + core_size: '%lu' is >= '%lu'",
-					boot_size+core_size, 0xf000);
-		}
+	umbra_read_in(&hint8, out_img, 0x1ee + 0x04, sizeof(uint8_t));
+	if (hint8 != 0x00 && hint8 != 0x80) {
+		hint8 &= 0x80;
+		umbra_write_out(&hint8, out_img, 0x1ee + 0x04, sizeof(uint8_t));
+	}
+	any_active = any_active || (hint8 & 0x80) != 0;
+
+	if (!any_active) {
+		umbra_error("No active partitions found!");
+	}
+
+	// keep MBR, going along with the assumption that out_img has MBR partitions (from above)
+	uint8_t original_mbr[70];
+	umbra_read_in(original_mbr, out_img, 440, 70);
+
+	umbra_info("writing boot image to '%s'", out_file);
+	umbra_write_out(boot_img, out_img, 0, boot_size);
+	umbra_info("writing core image to '%s'", out_file);
+	umbra_write_out(core_img, out_img, 512, core_size);
+	umbra_info("writing mbr to '%s'", out_file);
+	umbra_write_out(original_mbr, out_img, 440, 70);
+
+	fclose(out_img);
+
+	// sanity check
+	size_t size_expected = 0x4000000; // size of raw img file defined in umbra/bootloader/Makefile
+	size_t size = umbra_get_image_size(out_file);
+	if (size != size_expected) {
+		umbra_error("size != size_expected: '%lu' != '%lu'",
+				size, size_expected);
+	}
+
+	// stage3 at 0xf000 so don't be bigger than that
+	if (boot_size + core_size >= 0xf000) {
+		umbra_error("boot_size + core_size: '%lu' is >= '%lu'",
+				boot_size+core_size, 0xf000);
 	}
 
 cleanup:

@@ -32,7 +32,7 @@ STAGE3_OBJS := $(STAGE3_ASM_OBJS) $(STAGE3_C_OBJS)
 
 
 boot.hdd: arch/$(ARCH)/boot.o
-	$(CC) $(BOOT_LDFLAGS) -v -N -T arch/$(ARCH)/boot.ld -o $@ $^
+	$(CC) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/boot.ld -o $@ $^
 
 # start.hdd (the first sector of 512 bytes of the core.hdd, must be linked sepatately)
 start.hdd: arch/$(ARCH)/start.o
