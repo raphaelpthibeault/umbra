@@ -76,3 +76,44 @@ itoa(uint32_t value, char* result, uint8_t base)
 	return result;
 }
 
+int 
+strncmp(const char *a, const char *b, size_t n)
+{
+	char ca, cb;
+	// memcp but with strings, since I know the type I won't do any pointer shenanigans	
+	for (size_t i = 0; i < n; ++i) {
+		ca = a[i], cb = b[i];
+		if (!ca || !cb) {
+			return 0;
+		}
+		if (ca != cb) {
+			return ca < cb ? -1 : 1;
+		}
+	}
+
+	return 0;
+}
+
+int 
+strcmp(const char *a, const char *b)
+{
+	char ca, cb;
+	for (size_t i = 0; ; ++i) {
+		ca = a[i], cb = b[i];
+		if (!ca || !cb) {
+			return 0;
+		}
+		if (ca != cb) {
+			return ca < cb ? -1 : 1;
+		}
+	}
+}
+
+int 
+toupper(int c) {
+	if (c >= 'a' && c <= 'z') {
+		return c - 0x20;
+	}
+	return c;
+}
+

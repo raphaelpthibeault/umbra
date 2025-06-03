@@ -87,6 +87,7 @@ disk_read_sectors(disk_t *disk, uint64_t start_sector, size_t sectors_to_read, v
 		size_t total_bytes = len << disk->log_sector_size;
 
 		disk_rw(READ, disk, start_sector, total_bytes, len, SCRATCH_SEG);
+
 		memcpy(buf, (void *)SCRATCH_ADDR, total_bytes);
 
 		buf += total_bytes;
@@ -238,19 +239,6 @@ disk_create_index(void)
 			while (1);
 		}
 		
-		uint8_t first_sector[2];
-		disk_read(dp, 510, 2, &first_sector);
-		
-		// little endian
-		uint16_t magic = (first_sector[1] << 8) + first_sector[0];
-		putstr("bios magic: 0x", COLOR_GRN, COLOR_BLK);
-		{
-			char res[16];
-			itoa(magic, res, 16);
-			putstr(res, COLOR_GRN, COLOR_BLK);
-		}
-		putstr("\n", COLOR_GRN, COLOR_BLK);
-
 		if(partitions_get(dp) != END_OF_TABLE) {
 			putstr("[PANIC] partitions_get() returned 0 partitions\n", COLOR_RED, COLOR_BLK);
 			while (1);

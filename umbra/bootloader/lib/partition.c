@@ -4,8 +4,9 @@
 #include <mm/pmm.h>
 #include <drivers/vga.h>
 #include <drivers/disk.h>
+#include <fs/fat32.h>
 
-bool
+static bool
 is_valid_mbr(disk_t *disk) 
 {
 	uint8_t mbr[70];
@@ -114,6 +115,19 @@ partitions_get(disk_t *disk)
 		parts[partition].number = partition;
 		parts[partition].first_sector = entry.first_sector;
 		parts[partition].total_sectors = entry.total_sectors;
+		parts[partition].parent_disk = disk;
+
+		char *fslabel = fat32_get_label(&parts[partition]);
+		if (fslabel == NULL) {
+			parts[partition].fslabel_valid = false;	
+		} else {
+			putstr("fslabel: ", COLOR_YEL, COLOR_BLK);
+			putstr(fslabel, COLOR_YEL, COLOR_BLK);
+			putstr("\n", COLOR_YEL, COLOR_BLK);
+
+			parts[partition].fslabel = fslabel;		
+			parts[partition].fslabel_valid = false;	
+		}
 		
 		++count;
 	}
@@ -142,5 +156,13 @@ partitions_get(disk_t *disk)
 	disk->partition = parts;
 	
 	return END_OF_TABLE;
+}
+
+void
+partition_read(struct partition *part, size_t loc, size_t size, void *buf)
+{
+	size_t location = (part->first_sector << part->parent_disk->log_sector_size) + loc;
+
+	disk_read(part->parent_disk, location, size, buf);
 }
 

@@ -13,8 +13,12 @@ struct partition {
 	int number;
 	uint64_t first_sector;
 	uint64_t total_sectors; /* length in number of sectors */
+	disk_t *parent_disk;
+	char *fslabel;
+	bool fslabel_valid;
 };
 
 int partitions_get(disk_t *disk);
+void partition_read(struct partition *part, size_t loc, size_t size, void *buf);
 
 #endif // !__PARTITION_H__

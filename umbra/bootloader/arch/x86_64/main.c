@@ -29,23 +29,8 @@ boot_main(uint8_t boot_drive)
 		while (1);
 	}
 
-	putstr("Got boot disk...\n", COLOR_GRN, COLOR_BLK);
-	putstr("\tDevice name: ", COLOR_GRN, COLOR_BLK);
-	putstr(boot_disk->dev.name, COLOR_GRN, COLOR_BLK);
-	putstr("\n\tSector count: 0x", COLOR_GRN, COLOR_BLK);
-	{
-		char res[32];
-		itoa(boot_disk->total_sectors, res, 16);
-		putstr(res, COLOR_GRN, COLOR_BLK);
-	}
-	putstr("\n\tTotal Memory: 0x", COLOR_GRN, COLOR_BLK);
-	{
-		char res[32];
-		itoa(boot_disk->total_sectors * 512, res, 16);
-		putstr(res, COLOR_GRN, COLOR_BLK);
-	}
-
 	// jump to boot_menu
+	putstr("Finding boot_menu...\n", COLOR_GRN, COLOR_BLK);
 
 	while (1);
 }
