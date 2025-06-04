@@ -13,7 +13,7 @@ struct filehandle {
 	void *fd;
 	void (*read)(void *fd, void *buf, uint64_t loc, uint64_t count);
 	void (*close)(void *fd);
-	uint64_t   size;	
+	uint64_t size;	
 };
 
 /* TODO

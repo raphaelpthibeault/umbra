@@ -15,6 +15,9 @@ struct fat32_filehandle {
 	size_t chain_len;
 };
 
+static void fat32_read(struct filehandle *fh, void *buf, uint64_t loc, uint64_t count);
+static void fat32_close(struct filehandle *fh); 
+
 static void
 fat32_lfncopy(char *dest, const void *src, uint32_t size)
 {
@@ -464,11 +467,27 @@ fat32_open(struct partition *part, const char *path)
 			ret->cluster_chain = cache_cluster_chain(&ctx, ret->first_cluster, &ret->chain_len);
 
 			fh->fd = (void *)ret;
-			/* TODO: fat32 open, close, read, write */
+			fh->read = (void *)fat32_read;
+			fh->close = (void *)fat32_close;
 			fh->size = ret->size_bytes;
 			fh->part = part;
 
 			return fh;
 		}
 	}
+}
+
+static void
+fat32_read(struct filehandle *fh, void *buf, uint64_t loc, uint64_t count) 
+{
+	struct fat32_filehandle *fd = (struct fat32_filehandle *)fh->fd;
+	read_cluster_chain(&fd->ctx, fd->cluster_chain, buf, loc, count);
+}
+
+static void
+fat32_close(struct filehandle *fh) 
+{
+	struct fat32_filehandle *fd = (struct fat32_filehandle *)fh->fd;
+	memmap_free(fd->cluster_chain, fd->chain_len * sizeof(uint32_t));
+	memmap_free(fd, sizeof(struct fat32_filehandle));
 }

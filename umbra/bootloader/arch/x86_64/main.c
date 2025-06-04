@@ -45,6 +45,8 @@ boot_main(uint8_t boot_drive)
 		}
 		found_menu = true;
 		putstr("Found it. Jumping to menu...\n", COLOR_GRN, COLOR_BLK);
+		/* read */
+		/* close */
 		
 
 	}
