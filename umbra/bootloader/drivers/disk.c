@@ -128,16 +128,13 @@ disk_read(disk_t *disk, uint64_t loc, uint64_t size, void *buf)
 
 		disk_read_sectors(disk, start_sector, sectors_to_read, cache);
 		
-		uint64_t offset = (loc + progress) % (sectors_to_read << disk->log_sector_size);
-		uint64_t read_end = (start_sector + sectors_to_read) << disk->log_sector_size;
-		uint64_t chunk_end = loc + size;
+		/* current position - position of first byte in cache */
+		uint64_t offset = (loc + progress) - (start_sector << disk->log_sector_size);
 
-		if (chunk_end > read_end) {
-			chunk_end = read_end;
+		uint64_t chunk = size - progress;
+		if (chunk > cache_size - offset) {
+			chunk = cache_size - offset;
 		}
-
-		uint64_t offset_right = read_end - chunk_end;
-		uint64_t chunk = (sectors_to_read << disk->log_sector_size) - (offset + offset_right);
 
 		memcpy(buf + progress, &cache[offset], chunk);
 		progress += chunk;

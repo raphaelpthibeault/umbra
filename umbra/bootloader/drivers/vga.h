@@ -56,5 +56,6 @@ void reverse_cursor();
 void set_cursor_pos(uint8_t x, uint8_t y);
 /* scroll line i.e move cursor down and place leftmost */
 void scroll_line();
+void print_buffer_hex(void *buf, size_t size, const uint8_t fg, const uint8_t bg);
 
 #endif /* ifndef __VGA_H__ */

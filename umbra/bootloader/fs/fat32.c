@@ -1,9 +1,19 @@
 #include "fat32.h"
+#include "file.h"
 #include <types.h>
 #include <lib/partition.h>
 #include <lib/misc.h>
 #include <drivers/vga.h>
 #include <mm/pmm.h>
+
+struct fat32_filehandle {
+	struct fat32_context ctx;
+	uint32_t first_cluster;
+	uint32_t size_bytes;
+	uint32_t size_sectors;
+	uint32_t *cluster_chain;
+	size_t chain_len;
+};
 
 static void
 fat32_lfncopy(char *dest, const void *src, uint32_t size)
@@ -201,7 +211,7 @@ static uint32_t *
 cache_cluster_chain(struct fat32_context *ctx, uint32_t initial_cluster, size_t *_chain_len)
 {
 	uint32_t cluster_lim = (ctx->type == 12 ? 0xfef : 0) | (ctx->type == 16 ? 0xffef : 0) | (ctx->type == 32 ? 0xfffffef : 0);
-	if (initial_cluster == 0x2 || initial_cluster > cluster_lim) {
+	if (initial_cluster < 0x2 || initial_cluster > cluster_lim) {
 		return NULL;
 	}
 
@@ -277,6 +287,7 @@ fat32_open_in(struct fat32_context *ctx, struct fat32_directory_entry *dir, stru
 	} else {
 		dir_chain_len = DIV_ROUNDUP(ctx->root_entries * sizeof(struct fat32_directory_entry), block_size);
 		dir_entries = ext_mem_alloc(dir_chain_len * block_size);
+
 		partition_read(ctx->part, ctx->root_start * ctx->bytes_per_sector, ctx->root_entries * sizeof(struct fat32_directory_entry), dir_entries);
 	}
 
@@ -373,9 +384,91 @@ char *
 fat32_get_label(struct partition *part)
 {
 	struct fat32_context ctx;
-	if(fat32_mount(&ctx, part) != 0) {
+	if (fat32_mount(&ctx, part) != 0) {
 		return NULL;
 	}
 
 	return ctx.label;
+}
+
+struct filehandle *
+fat32_open(struct partition *part, const char *path) 
+{
+	struct fat32_context ctx;
+	if (fat32_mount(&ctx, part) != 0) {
+		return NULL;
+	}
+
+	struct fat32_directory_entry _curr_dir;
+	struct fat32_directory_entry *curr_dir;
+	struct fat32_directory_entry curr_file;
+
+	uint32_t curr_idx = 0;
+	char curr_part[FAT32_LFN_MAX_FILENAME_LENGTH];
+	/* skip trailing slash */
+	while (path[curr_idx] == '/') {
+		++curr_idx;
+	}
+
+	/* walk directory tree */
+	switch (ctx.type) {
+		case 12:
+		case 16:
+			curr_dir = NULL;
+			break;
+		case 32:
+			_curr_dir.cluster_num_low = ctx.root_directory_cluster & 0xFFFF;
+			_curr_dir.cluster_num_high = ctx.root_directory_cluster >> 16;
+			curr_dir = &_curr_dir;
+			break;
+		default:
+			__builtin_unreachable();
+	}
+
+	while (true) {
+		bool expect_dir = false;
+		for (uint32_t i = 0; i < SIZEOF_ARRAY(curr_part); ++i) {
+			if (path[i + curr_idx] == 0) {
+				memcpy(curr_part, path + curr_idx, i);
+				curr_part[i] = 0;
+				expect_dir = false;
+				break;
+			}
+			if (path[i + curr_idx] == '/') {
+				memcpy(curr_part, path + curr_idx, i);
+				curr_part[i] = 0;
+				curr_idx += i + 1;
+				expect_dir = true;
+				break;
+			}
+		}
+
+		if (fat32_open_in(&ctx, curr_dir, &curr_file, curr_part) != 0) {
+			return NULL;
+		}
+
+		if (expect_dir) {
+			_curr_dir = curr_file;
+			curr_dir = &_curr_dir;
+		} else {
+			struct filehandle *fh = ext_mem_alloc(sizeof(struct filehandle));
+			struct fat32_filehandle *ret = ext_mem_alloc(sizeof(struct fat32_filehandle));
+
+			ret->ctx = ctx;
+			ret->first_cluster = curr_file.cluster_num_low;
+			if (ctx.type == 32) {
+				ret->first_cluster |= (uint64_t)curr_file.cluster_num_high << 16;
+			}
+			ret->size_bytes = curr_file.file_size_bytes;
+			ret->size_sectors = DIV_ROUNDUP(curr_file.file_size_bytes, ctx.bytes_per_sector);
+			ret->cluster_chain = cache_cluster_chain(&ctx, ret->first_cluster, &ret->chain_len);
+
+			fh->fd = (void *)ret;
+			/* TODO: fat32 open, close, read, write */
+			fh->size = ret->size_bytes;
+			fh->part = part;
+
+			return fh;
+		}
+	}
 }

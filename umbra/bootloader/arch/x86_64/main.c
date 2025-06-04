@@ -6,6 +6,9 @@
 #include "idt.h"
 #include <drivers/disk.h>
 
+#include <fs/fat32.h>
+#include <fs/file.h>
+
 noreturn void
 boot_main(uint8_t boot_drive)
 {
@@ -29,8 +32,28 @@ boot_main(uint8_t boot_drive)
 		while (1);
 	}
 
-	// jump to boot_menu
+	/* jump to boot_menu */
 	putstr("Finding boot_menu...\n", COLOR_GRN, COLOR_BLK);
+
+	bool found_menu = false;
+	for (int i = 0; i < boot_disk->max_partition; ++i) {
+		struct partition part = boot_disk->partition[i];
+
+		struct filehandle *fh = fat32_open(&part, "/boot/bootloader/stage3.sys"); 
+		if (fh == NULL) {
+			continue;
+		}
+		found_menu = true;
+		putstr("Found it. Jumping to menu...\n", COLOR_GRN, COLOR_BLK);
+		
+
+	}
+	if (!found_menu) {
+		putstr("[PANIC] could not find stage3.sys!\n", COLOR_RED, COLOR_BLK);
+		while (1);
+	}
+
+
 
 	while (1);
 }

@@ -3,6 +3,7 @@
 
 #include <types.h>
 #include <lib/partition.h>
+#include "file.h"
 
 #define FAT32_LFN_MAX_ENTRIES 20
 #define FAT32_LFN_MAX_FILENAME_LENGTH (FAT32_LFN_MAX_ENTRIES * 13 + 1)
@@ -97,5 +98,6 @@ struct fat32_lfn_entry {
 
 char *fat32_get_label(struct partition *part);
 int fat32_open_in(struct fat32_context *ctx, struct fat32_directory_entry *dir, struct fat32_directory_entry *file, const char *name);
+struct filehandle *fat32_open(struct partition *part, const char *path);
 
 #endif // !__FAT32_H__
