@@ -12,8 +12,8 @@ STAGE2_ASM_SOURCES= arch/$(ARCH)/core.S arch/$(ARCH)/asm.S arch/$(ARCH)/int.S ar
 STAGE2_C_SOURCES= arch/$(ARCH)/main.c drivers/vga.c arch/$(ARCH)/e820.c mm/pmm.c lib/misc.c arch/$(ARCH)/idt.c \
  arch/$(ARCH)/exceptions.c drivers/disk.c lib/partition.c lib/arithmetic64.c fs/fat32.c fs/file.c
 
-STAGE3_ASM_SOURCES= arch/$(ARCH)/boot_menu.S
-STAGE3_C_SOURCES= common/boot_menu.c
+STAGE3_ASM_SOURCES= arch/$(ARCH)/stage3_entry.S arch/$(ARCH)/boot_menu.S
+STAGE3_C_SOURCES= arch/$(ARCH)/stage3.c common/boot_menu.c drivers/vga.c lib/misc.c
 
 
 STAGE2_ASM_OBJS := $(STAGE2_ASM_SOURCES:.S=.o)

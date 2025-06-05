@@ -5,9 +5,9 @@
 #include <lib/misc.h>
 #include "idt.h"
 #include <drivers/disk.h>
-
-#include <fs/fat32.h>
 #include <fs/file.h>
+
+extern char _stage3_addr[];
 
 noreturn void
 boot_main(uint8_t boot_drive)
@@ -32,31 +32,38 @@ boot_main(uint8_t boot_drive)
 		while (1);
 	}
 
-	/* jump to boot_menu */
-	putstr("Finding boot_menu...\n", COLOR_GRN, COLOR_BLK);
-
+	/* find stage3 aka the boot menu */
+	putstr("Finding stage3...\n", COLOR_GRN, COLOR_BLK);
+	/* stage3 is the boot_menu where user chooses kernel to load */
 	bool found_menu = false;
+	struct filehandle *stage3;
 	for (int i = 0; i < boot_disk->max_partition; ++i) {
 		struct partition part = boot_disk->partition[i];
 
-		struct filehandle *fh = fat32_open(&part, "/boot/bootloader/stage3.sys"); 
-		if (fh == NULL) {
+		if ((stage3 = fopen(&part, "/boot/bootloader/stage3.sys")) == NULL) {
 			continue;
 		}
 		found_menu = true;
-		putstr("Found it. Jumping to menu...\n", COLOR_GRN, COLOR_BLK);
-		/* read */
+		/* definitions in stage3.ld; read stage3 into _stage3_addr */
+		fread(stage3, // fh
+				_stage3_addr, // buf
+				(uintptr_t)_stage3_addr - 0xf000, // loc = addr - addr_start ; should be 0 
+				stage3->size - ((uintptr_t)_stage3_addr - 0xf000)); // count = size - loc ; should result in size
 		/* close */
-		
-
+		fclose(stage3);
 	}
 	if (!found_menu) {
 		putstr("[PANIC] could not find stage3.sys!\n", COLOR_RED, COLOR_BLK);
 		while (1);
 	}
 
+	/* jump to boot_menu */
+	putstr("Found stage3. Jumping to stage3...\n", COLOR_GRN, COLOR_BLK);
 
+	typedef void (*stage3_entry_func_t)(void);
+	stage3_entry_func_t stage3_start = (stage3_entry_func_t)((uintptr_t)_stage3_addr);
+	stage3_start();
 
-	while (1);
+	__builtin_unreachable();
 }
 

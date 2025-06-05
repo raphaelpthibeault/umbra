@@ -117,3 +117,26 @@ toupper(int c) {
 	return c;
 }
 
+size_t 
+strlen(const char *str)
+{
+	size_t i;
+
+	for (i = 0; str[i]; ++i);
+
+	return i;
+}
+
+char *
+strcpy(char *dest, const char *src)
+{
+	size_t i;
+	for (i = 0; src[i]; ++i) {
+		dest[i] = src[i];
+	}
+
+	dest[i] = 0;
+
+	return dest;	
+}
+

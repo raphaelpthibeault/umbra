@@ -18,4 +18,6 @@ char *itoa(uint32_t value, char* result, uint8_t base);
 int strncmp(const char *a, const char *b, size_t n);
 int strcmp(const char *a, const char *b);
 int toupper(int c);
+size_t strlen(const char *str);
+char *strcpy(char *dest, const char *src);
 #endif // !__MISC_H__

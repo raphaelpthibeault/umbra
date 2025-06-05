@@ -1,14 +1,12 @@
 OUTPUT_FORMAT("binary")
-ENTRY(boot_menu)
+ENTRY(stage3_start)
 
 SECTIONS
 {
-	/* */
 	. = 0xf000;
 
 	.text : 
 	{
-		PROVIDE(_stage3_addr = .);
 		*(.text .text.*)
 	}
 
