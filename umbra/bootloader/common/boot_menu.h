@@ -3,7 +3,8 @@
 
 #include <types.h>
 
-noreturn void boot_menu(void); // in boot_menu.S of arch/${ARCH}/
+// TODO: noreturn void boot_menu(void); // in boot_menu.S of arch/${ARCH}/
+noreturn void _boot_menu(void);
 noreturn void boot(void);
 
 #endif // !__BOOT_MENU_H__

@@ -12,9 +12,9 @@ build: clean
 	# format raw image past bootloader (of size 1M) as FAT32
 	mformat -i umbra.hdd@@1M
 	# add relevant directories 
-	mmd -i umbra.hdd@@1M ::/boot ::/boot/bootloader
-	# copy files to relevant directories (bootloader, TODO: kernel, config file)
-	mcopy -i umbra.hdd@@1M umbra/bootloader/stage3.sys ::/boot/bootloader
+	mmd -i umbra.hdd@@1M ::/boot # ::/boot/bootloader
+	# copy files to relevant directories (TODO: kernel, config file)
+	# mcopy -i umbra.hdd@@1M umbra/bootloader/stage3.sys ::/boot/bootloader
 
 run: build
 	qemu-system-x86_64 -drive format=raw,file=umbra.hdd -no-reboot

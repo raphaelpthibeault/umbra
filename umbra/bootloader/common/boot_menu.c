@@ -5,7 +5,10 @@
 noreturn void
 _boot_menu(void)
 {
+	clearwin(COLOR_GRN, COLOR_BLK);
 	putstr("UMBRA BOOT MENU\n", COLOR_GRN, COLOR_BLK);
+	/* VGA turn off */
+
 
 	while(1);	
 }

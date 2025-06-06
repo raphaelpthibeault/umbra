@@ -212,7 +212,7 @@ umbra_mkimage(const char *out_file)
 	core_img = umbra_read_image(core_path);
 	free(core_path);
 
-	/* load via core size, (i.e. just load stage2) since stage3 and kernel will be in file system */
+	/* load via core size, (i.e. just load stage2) since kernel will be in file system */
 	core_sectors = ((core_size + DISK_SECTOR_SIZE -1) >> DISK_SECTOR_BITS);
 
 	/* 
@@ -314,12 +314,6 @@ umbra_mkimage(const char *out_file)
 	if (size != size_expected) {
 		umbra_error("size != size_expected: '%lu' != '%lu'",
 				size, size_expected);
-	}
-
-	// stage3 at 0xf000 so don't be bigger than that
-	if (boot_size + core_size >= 0xf000) {
-		umbra_error("boot_size + core_size: '%lu' is >= '%lu'",
-				boot_size+core_size, 0xf000);
 	}
 
 cleanup:

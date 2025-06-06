@@ -27,10 +27,5 @@ SECTIONS
 		*(.bss)
 		PROVIDE(_bss_end = .);
 	}
-
-	/* stage3 location, see stage3.ld */
-	. = 0xf000;
-	_stage3_addr = .; 
-
 }
 
