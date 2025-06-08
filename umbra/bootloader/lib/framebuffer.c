@@ -40,6 +40,7 @@ fb_clear(struct fb_info *fb)
 struct fb_info *
 fb_init(size_t *_fb_count, uint16_t target_width, uint16_t target_height, uint16_t target_bpp)
 {
+	serial_print("Framebuffer: Initializing...\n");
 	struct fb_info *ret = ext_mem_alloc(sizeof(struct fb_info));	
 
 	if (vbe_init(ret, target_width, target_height, target_bpp)) {
@@ -53,5 +54,6 @@ fb_init(size_t *_fb_count, uint16_t target_width, uint16_t target_height, uint16
 		memmap_free(ret, sizeof(struct fb_info));
 	}
 
+	serial_print("Framebuffer: Initialized with dims %dx%dx%d\n", (uint16_t)ret->framebuffer_width, (uint16_t)ret->framebuffer_height, (uint16_t)ret->framebuffer_bpp);
 	return ret;
 }

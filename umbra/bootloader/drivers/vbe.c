@@ -82,6 +82,19 @@ struct vbe_mode_info_structure  {
 	uint8_t  reserved2[190];
 } __attribute__((packed));
 
+struct vbe_crtc_info_block {
+	uint16_t horizontal_total;
+  uint16_t horizontal_sync_start;
+  uint16_t horizontal_sync_end;
+  uint16_t vertical_total;
+  uint16_t vertical_sync_start;
+  uint16_t vertical_sync_end;
+  uint8_t flags;
+  uint32_t pixel_clock;
+  uint16_t refresh_rate;
+  uint8_t reserved[40];	
+} __attribute__((packed));
+
 static int
 vbe_get_controller_info(struct vbe_info_block *ci)
 {
@@ -104,6 +117,21 @@ vbe_get_mode_info(struct vbe_mode_info_structure *mode_info, uint32_t mode)
   regs.edi = ((uintptr_t)mode_info) & 0xffff;
   regs.eax = 0x4f01;
 	regs.ecx = mode;
+  regs.flags = 0x200;
+
+  rm_int(0x10, &regs);
+
+  return regs.eax & 0xffff;
+}
+
+static int
+vbe_set_video_mode(struct vbe_crtc_info_block *crtc_info, int32_t mode) 
+{
+	struct int_regs regs = {0};
+	regs.es = (((uintptr_t)crtc_info) & 0xffff0000) >> 4;
+  regs.edi = ((uintptr_t)crtc_info) & 0xffff;
+  regs.eax = 0x4f02;
+	regs.ebx = mode;
   regs.flags = 0x200;
 
   rm_int(0x10, &regs);
@@ -169,6 +197,8 @@ retry:
 		struct vbe_mode_info_structure mode_info = {0};
 
 		if (vbe_get_mode_info(&mode_info, vid_modes[i]) != 0x004f) {
+			// what type of butterfly effect is this
+			serial_print("VBE: Could not retrieve mode info for 0x%x, moving on...\n", vid_modes[i]);
 			continue;	
 		}
 
@@ -177,17 +207,30 @@ retry:
 				mode_info.bpp == target_bpp) {
 			/* I'll only support RGB probably */
 			if (mode_info.memory_model != 0x06) {
+				serial_print("VBE: Mode 0x%x is non-RGB, moving on...\n", vid_modes[i]);
 				continue;
 			}
 
 			/* only support linear modes */
 			if (!(mode_info.mode_attributes & (1 << 7))) {
+				serial_print("VBE: Mode 0x%x is non-linear, moving on...\n", vid_modes[i]);
 				continue;
 			}
 
 			serial_print("VBE: Found matching mode 0x%x, try to set...\n", vid_modes[i]);
 
-			serial_print("VBE: Framebuffer address: 0x%x\n", mode_info.framebuffer_addr);
+			/* For all VESA BIOS modes, force linear frame buffer.  */
+			if (vid_modes[i] >= 0x100) {
+				/* Only want linear fb */
+				vid_modes[i] |= 1 << 14;
+			}
+
+			if (vbe_set_video_mode(0, vid_modes[i]) != 0x004f) {
+				serial_print("VBE: Failed to set video mode 0x%x, moving on...\n", vid_modes[i]);
+			}
+
+			serial_print("VBE: (set) mode info fb address: 0x%x\n", mode_info.framebuffer_addr);
+			serial_print("VBE: (set) mode info resolution: %dx%dx%d\n", mode_info.res_x, mode_info.res_y, mode_info.bpp);
 
 			ret->memory_model = mode_info.memory_model;
 			ret->framebuffer_addr = mode_info.framebuffer_addr;
