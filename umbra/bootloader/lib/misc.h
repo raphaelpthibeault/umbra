@@ -20,4 +20,8 @@ int strcmp(const char *a, const char *b);
 int toupper(int c);
 size_t strlen(const char *str);
 char *strcpy(char *dest, const char *src);
+char *strchr(const char *s, int c);
+int digit_to_int(char c);
+uint64_t strtoui(const char *s, const char **end, int base);
+
 #endif // !__MISC_H__

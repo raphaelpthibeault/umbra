@@ -17,7 +17,7 @@ build: clean
 	# mcopy -i umbra.hdd@@1M umbra/bootloader/stage3.sys ::/boot/bootloader
 
 run: build
-	qemu-system-x86_64 -drive format=raw,file=umbra.hdd -no-reboot
+	qemu-system-x86_64 -drive format=raw,file=umbra.hdd -no-reboot -M q35 -m 2G -serial mon:stdio
 
 clean:
 	make -C umbra/bootloader clean

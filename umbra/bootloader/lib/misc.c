@@ -140,3 +140,48 @@ strcpy(char *dest, const char *src)
 	return dest;	
 }
 
+char *
+strchr(const char *s, int c)
+{
+	do {
+		if (*s == c) {
+			return (char *)s;
+		}
+	}	while (*s++);
+	return 0;
+}
+
+int
+digit_to_int(char c)
+{
+	if (c >= 'a' && c <= 'f') {
+		return (c - 'a') + 10;
+	}
+	if (c >= 'A' && c <= 'F') {
+		return (c - 'A') + 10;
+	}
+	if (c >= '0' && c <= '9'){
+		return c - '0';
+	}
+
+	return -1;
+}
+
+uint64_t
+strtoui(const char *s, const char **end, int base)
+{
+	uint64_t n = 0;
+	for (size_t i = 0; ; ++i) {
+		int d = digit_to_int(s[i]);
+		if (d == -1) {
+			if (end != NULL) {
+				*end = &s[i];
+			}
+			break;
+		}
+		n = n * base + d;
+	}
+
+	return n;
+}
+
