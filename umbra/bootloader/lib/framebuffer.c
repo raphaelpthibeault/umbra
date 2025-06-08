@@ -53,10 +53,5 @@ fb_init(size_t *_fb_count, uint16_t target_width, uint16_t target_height, uint16
 		memmap_free(ret, sizeof(struct fb_info));
 	}
 
-	if (ret == NULL) {
-		serial_print("END");
-	}
-
 	return ret;
-
 }

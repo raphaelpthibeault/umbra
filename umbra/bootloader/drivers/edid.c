@@ -41,14 +41,14 @@ get_edid_record(void)
 		}
 	}
 
-	serial_print("[error] zeroed edid recrod buffer");
+	serial_print("[error] zeroed edid recrod buffer\n");
 
 fail:
-	serial_print("[error] Could not get edid record");
+	serial_print("[error] Could not get edid record\n");
 	return NULL;
 success:
 	memcpy(edid_record, buf, sizeof(struct edid_record));
-	serial_print("edid: got edid record");
+	serial_print("EDID: got edid record\n");
 	return edid_record;
 }
 

@@ -14,11 +14,13 @@ terminal_init()
 	struct fb_info *fb = NULL; 
 	size_t fb_count = 0;;
 
-	serial_print("Terminal: Initializing...");
+	serial_print("\n\n\n---------- UMBRA BOOTLOADER ----------\n\n");
+
+	serial_print("Terminal: Initializing...\n");
 	fb = fb_init(&fb_count, 640, 480, 32);
 
 	if (fb == NULL || fb_count == 0) {
-		serial_print("Terminal: Error, framebuffer null");
+		serial_print("Terminal: Error, framebuffer null\n");
 		return false;
 	}
 
@@ -32,11 +34,7 @@ terminal_init()
 		fb_ptr[i] = 0xffffff;
 	}
 
-
-
-
-	serial_print("Terminal initialized with dims %ux%ux%u", fb->framebuffer_width, fb->framebuffer_height, fb->framebuffer_bpp);
-
+	serial_print("Terminal: initialized with dims %dx%dx%d\n", (uint16_t)fb->framebuffer_width, (uint16_t)fb->framebuffer_height, (uint16_t)fb->framebuffer_bpp);
 	return true;
 }
 

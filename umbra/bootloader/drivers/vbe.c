@@ -114,7 +114,7 @@ vbe_get_mode_info(struct vbe_mode_info_structure *mode_info, uint32_t mode)
 bool
 vbe_init(struct fb_info *ret, uint16_t target_width, uint16_t target_height, uint16_t target_bpp)
 {
-	serial_print("VBE: Initializing...");
+	serial_print("VBE: Initializing...\n");
 
 	size_t curr_fallback = 0;
 
@@ -124,11 +124,11 @@ vbe_init(struct fb_info *ret, uint16_t target_width, uint16_t target_height, uin
 		return false;
 	}
 
-	serial_print("VBE: Version: %u.%u", vbe_info->version_hi, vbe_info->version_lo);
-	serial_print("VBE: OEM: %s", (char *)rm_desegment(vbe_info->oem_seg, vbe_info->oem_off));
-	serial_print("VBE: Graphics vendor: %s", (char *)rm_desegment(vbe_info->vendor_seg, vbe_info->vendor_off));
-	serial_print("VBE: Product name: %s", (char *)rm_desegment(vbe_info->prod_name_seg, vbe_info->prod_name_off));
-	serial_print("VBE: Product revision: %s", (char *)rm_desegment(vbe_info->prod_rev_seg, vbe_info->prod_rev_off));
+	serial_print("VBE: Version: %d.%d\n", vbe_info->version_hi, vbe_info->version_lo);
+	serial_print("VBE: OEM: %s\n", (char *)rm_desegment(vbe_info->oem_seg, vbe_info->oem_off));
+	serial_print("VBE: Graphics vendor: %s\n", (char *)rm_desegment(vbe_info->vendor_seg, vbe_info->vendor_off));
+	serial_print("VBE: Product name: %s\n", (char *)rm_desegment(vbe_info->prod_name_seg, vbe_info->prod_name_off));
+	serial_print("VBE: Product revision: %s\n", (char *)rm_desegment(vbe_info->prod_rev_seg, vbe_info->prod_rev_off));
 
 	uint32_t *vid_modes = (uint32_t *)rm_desegment(vbe_info->vid_modes_seg, vbe_info->vid_modes_off);
 	
@@ -154,17 +154,17 @@ vbe_init(struct fb_info *ret, uint16_t target_width, uint16_t target_height, uin
 				target_width = edid_width;
 				target_height = edid_height;
 				target_bpp = 32;
-				serial_print("VBE: EDID detected screen resolution of %ux%u", target_width, target_height);
+				serial_print("VBE: EDID detected screen resolution of %dx%d\n", target_width, target_height);
 				goto retry;
 			}
 		}
 		goto fallback;
 	} else {
-		serial_print("VBE: Requested resolution of %ux%ux%u", target_width, target_height, target_bpp);
+		serial_print("VBE: Requested resolution of %dx%dx%d\n", target_width, target_height, target_bpp);
 	}
 
 retry:
-	serial_print("VBE: Try with %ux%ux%u", target_width, target_height, target_bpp);
+	serial_print("VBE: Try with %dx%dx%d\n", target_width, target_height, target_bpp);
 	for (size_t i = 0; vid_modes[i] != 0xffff; ++i) {
 		struct vbe_mode_info_structure mode_info = {0};
 
@@ -185,9 +185,9 @@ retry:
 				continue;
 			}
 
-			serial_print("VBE: Found matching mode %x, try to set...", vid_modes[i]);
+			serial_print("VBE: Found matching mode 0x%x, try to set...\n", vid_modes[i]);
 
-			serial_print("VBE: Framebuffer address: 0x%x", mode_info.framebuffer_addr);
+			serial_print("VBE: Framebuffer address: 0x%x\n", mode_info.framebuffer_addr);
 
 			ret->memory_model = mode_info.memory_model;
 			ret->framebuffer_addr = mode_info.framebuffer_addr;
