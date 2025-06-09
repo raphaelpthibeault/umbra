@@ -54,27 +54,28 @@ struct video_mode_info {
 	unsigned int mode_number;
 #define VIDEO_MODE_NUMBER_INVALID 0xffffffff
 
- unsigned int red_mask_size; 
- unsigned int red_field_pos;
- unsigned int green_mask_size;
- unsigned int green_field_pos;
- unsigned int blue_mask_size;
- unsigned int blue_field_pos;
- unsigned int reserved_mask_size;
- unsigned int reserved_field_pos;
- 
- /* For 1-bit bitmaps, the background color.  Used for bits = 0.  */
- uint8_t bg_red;
- uint8_t bg_green;
- uint8_t bg_blue;
- uint8_t bg_alpha;
- 
- /* For 1-bit bitmaps, the foreground color.  Used for bits = 1.  */
- uint8_t fg_red;
- uint8_t fg_green;
- uint8_t fg_blue;
- uint8_t fg_alpha;	
+	unsigned int red_mask_size; 
+	unsigned int red_field_pos;
+	unsigned int green_mask_size;
+	unsigned int green_field_pos;
+	unsigned int blue_mask_size;
+	unsigned int blue_field_pos;
+	unsigned int reserved_mask_size;
+	unsigned int reserved_field_pos;
+	
+	/* For 1-bit bitmaps, the background color.  Used for bits = 0.  */
+	uint8_t bg_red;
+	uint8_t bg_green;
+	uint8_t bg_blue;
+	uint8_t bg_alpha;
+	
+	/* For 1-bit bitmaps, the foreground color.  Used for bits = 1.  */
+	uint8_t fg_red;
+	uint8_t fg_green;
+	uint8_t fg_blue;
+	uint8_t fg_alpha;	
 };
+
 struct vbe_info_block {
 	char signature[4];
 	uint8_t version_lo;
@@ -267,15 +268,15 @@ vbe_get_video_mode(uint32_t *mode)
 	if (!vbe_probe(0)) {
 		return -1;	
 	}	
-
+	
 	struct int_regs regs = {0};
 	regs.eax = 0x4f03;
 	regs.flags = 0x200;
-
-  rm_int(0x10, &regs);
-
+	
+	rm_int(0x10, &regs);
+	
 	*mode = regs.ebx & 0xffff;
-  return regs.eax & 0xffff;
+	return regs.eax & 0xffff;
 }
 
 static int
@@ -319,7 +320,7 @@ vbe_set_video_mode(struct vbe_mode_info_block *mode_info, uint32_t mode)
 static void *
 real2pm (uint32_t ptr)
 {
-  return (void *) ((((unsigned long) ptr & 0xFFFF0000) >> 12UL)
+	return (void *) ((((unsigned long) ptr & 0xFFFF0000) >> 12UL)
                    + ((unsigned long) ptr & 0x0000FFFF));
 }
 
