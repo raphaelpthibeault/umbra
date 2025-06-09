@@ -14,8 +14,7 @@ terminal_init()
 	serial_print("\n\n\n---------- UMBRA BOOTLOADER ----------\n\n");
 
 	serial_print("Terminal: Initializing...\n");
-	//fb = fb_init(&fb_count, 640, 480, 32);
-	fb = fb_init(&fb_count, 0, 0, 32);
+	fb = fb_init(&fb_count, 0, 0, 0);
 
 	if (fb == NULL || fb_count == 0) {
 		serial_print("Terminal: Error, framebuffer null\n");

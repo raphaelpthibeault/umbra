@@ -43,15 +43,16 @@ fb_init(size_t *_fb_count, uint16_t target_width, uint16_t target_height, uint16
 	serial_print("Framebuffer: Initializing...\n");
 	struct fb_info *ret = ext_mem_alloc(sizeof(struct fb_info));	
 
-	if (vbe_init(ret, target_width, target_height, target_bpp)) {
+	if (vbe_setup(ret, target_width, target_height, target_bpp)) {
 		*_fb_count = 1;
 		ret->edid = get_edid_record();
-		size_t mode_count;
-		ret->mode_list = vbe_get_mode_list(&mode_count);
-		ret->mode_count = mode_count;
+		//size_t mode_count;
+		//ret->mode_list = vbe_get_mode_list(&mode_count);
+		//ret->mode_count = mode_count;
 	} else {
 		*_fb_count = 0;
 		memmap_free(ret, sizeof(struct fb_info));
+		return NULL;
 	}
 
 	serial_print("Framebuffer: Initialized with dims %dx%dx%d\n", (uint16_t)ret->framebuffer_width, (uint16_t)ret->framebuffer_height, (uint16_t)ret->framebuffer_bpp);

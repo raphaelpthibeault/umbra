@@ -9,6 +9,72 @@
 
 /* reference: https://wiki.osdev.org/VESA_Video_Modes */
 
+#define VBE_MODEATTR_SUPPORTED (1 << 0)
+#define VBE_MODEATTR_COLOR (1 << 3)
+#define VBE_MODEATTR_LFB_AVAIL (1 << 7)
+#define VBE_MODEATTR_GRAPHICS (1 << 4)
+#define VBE_MEMORY_MODEL_PACKED_PIXEL 0x04
+#define VBE_MEMORY_MODEL_DIRECT_COLOR 0x06
+
+typedef enum {
+	VIDEO_MODE_TYPE_RGB = 0x00000001,
+	VIDEO_MODE_TYPE_INDEX_COLOR = 0x00000002,
+	VIDEO_MODE_TYPE_1BIT_BITMAP = 0x00000004,
+	VIDEO_MODE_TYPE_YUV = 0x00000008,
+
+	/* defines used to mask flags.  */
+	VIDEO_MODE_TYPE_COLOR_MASK = 0x0000000F,
+
+	VIDEO_MODE_TYPE_DOUBLE_BUFFERED = 0x00000010,
+	VIDEO_MODE_TYPE_ALPHA = 0x00000020,
+	VIDEO_MODE_TYPE_PURE_TEXT = 0x00000040,
+	VIDEO_MODE_TYPE_UPDATING_SWAP = 0x00000080,
+	VIDEO_MODE_TYPE_OPERATIONAL_MASK = 0x000000F0,
+
+	/* defines used to specify requested bit depth.  */
+	VIDEO_MODE_TYPE_DEPTH_MASK = 0x0000FF00,
+#define VIDEO_MODE_TYPE_DEPTH_POS 8
+
+	VIDEO_MODE_TYPE_UNKNOWN = 0x00010000,
+	VIDEO_MODE_TYPE_HERCULES = 0x00020000,
+	VIDEO_MODE_TYPE_PLANAR = 0x00040000,
+	VIDEO_MODE_TYPE_NONCHAIN4 = 0x00080000,
+	VIDEO_MODE_TYPE_CGA = 0x00100000,
+	VIDEO_MODE_TYPE_INFO_MASK = 0x00FF0000,
+} video_mode_type_t;
+
+struct video_mode_info {
+  unsigned int width;
+  unsigned int height;
+  video_mode_type_t mode_type; /* Mode type bitmask, has information like is it Index color or RGB mode.  */
+  unsigned int bpp; /* Bits per pixel.  */
+  unsigned int bytes_per_pixel; /* Bytes per pixel.  */
+  unsigned int pitch; /* Pitch of one scanline.  How many bytes there are for scanline.  */
+  unsigned int number_of_colors; /* In index color mode, number of colors.  In RGB mode this is 256.  */
+  unsigned int mode_number;
+#define GRUB_VIDEO_MODE_NUMBER_INVALID 0xffffffff
+
+  unsigned int red_mask_size; 
+  unsigned int red_field_pos;
+  unsigned int green_mask_size;
+  unsigned int green_field_pos;
+  unsigned int blue_mask_size;
+  unsigned int blue_field_pos;
+  unsigned int reserved_mask_size;
+  unsigned int reserved_field_pos;
+
+  /* For 1-bit bitmaps, the background color.  Used for bits = 0.  */
+  uint8_t bg_red;
+  uint8_t bg_green;
+  uint8_t bg_blue;
+  uint8_t bg_alpha;
+
+  /* For 1-bit bitmaps, the foreground color.  Used for bits = 1.  */
+  uint8_t fg_red;
+  uint8_t fg_green;
+  uint8_t fg_blue;
+  uint8_t fg_alpha;	
+};
 struct vbe_info_block {
 	char signature[4];
 	uint8_t version_lo;
@@ -30,7 +96,7 @@ struct vbe_info_block {
 	uint8_t  oem_data[256];
 } __attribute__((packed));
 
-struct vbe_mode_info_structure  {
+struct vbe_mode_info_block  {
 	uint16_t mode_attributes;
 	uint8_t  wina_attributes;
 	uint8_t  winb_attributes;
@@ -95,6 +161,11 @@ struct vbe_crtc_info_block {
   uint8_t reserved[40];	
 } __attribute__((packed));
 
+static struct vbe_info_block controller_info;
+static int vbe_detected = -1;
+static uint16_t *vbe_mode_list;
+static uint32_t initial_vbe_mode;
+
 static int
 vbe_get_controller_info(struct vbe_info_block *ci)
 {
@@ -109,23 +180,106 @@ vbe_get_controller_info(struct vbe_info_block *ci)
   return regs.eax & 0xffff;
 }
 
+bool
+vbe_probe(struct vbe_info_block *info_block)
+{
+	struct vbe_info_block *ib;
+	uint32_t status;
+
+	if (info_block) {
+		memset(info_block, 0, sizeof(*info_block));
+	}
+
+	if (vbe_detected == -1 || info_block) {
+		memset(&controller_info, 0, sizeof(controller_info));
+		vbe_detected = 0; /* mark as undetected */
+
+		ib = (struct vbe_info_block *)SCRATCH_ADDR;
+		memset(ib, 0, sizeof(*ib));
+
+		ib->signature[0] = 'V';
+		ib->signature[1] = 'B';
+		ib->signature[2] = 'E';
+		ib->signature[3] = '2';
+
+		status = vbe_get_controller_info(ib);
+		if (status == 0x4f) {
+			memcpy(&controller_info, ib, sizeof(controller_info));
+			vbe_detected = 1;
+		}
+	}
+
+	if (!vbe_detected) {
+		serial_print("VBE: VESA BIOS Extension not found!\n");
+		return false;
+	}
+
+	if (info_block) {
+		memcpy(info_block, &controller_info, sizeof(*info_block));
+	}
+
+	return true;
+}
+
 static int
-vbe_get_mode_info(struct vbe_mode_info_structure *mode_info, uint32_t mode)
+bios_get_vbe_mode_info(struct vbe_mode_info_block *mode_info, uint32_t mode)
 {
 	struct int_regs regs = {0};
 	regs.es = (((uintptr_t)mode_info) & 0xffff0000) >> 4;
-  regs.edi = ((uintptr_t)mode_info) & 0xffff;
-  regs.eax = 0x4f01;
+	regs.edi = ((uintptr_t)mode_info) & 0xffff;
+	regs.eax = 0x4f01;
 	regs.ecx = mode;
-  regs.flags = 0x200;
+	regs.flags = 0x200;
+
+	rm_int(0x10, &regs);
+
+	return regs.eax & 0xffff;
+}
+
+
+static int
+vbe_get_mode_info(struct vbe_mode_info_block *mode_info, uint32_t mode)
+{
+	struct vbe_mode_info_block *mi_tmp = (struct vbe_mode_info_block *)SCRATCH_ADDR;
+
+	if (!vbe_probe(0)) {
+		return 0;	// the only real "error"
+	}	
+
+	/* if non-VESA, skip */
+	if (mode < 0x100) {
+		memset(mi_tmp, 0, sizeof(*mi_tmp));
+		return -1;
+	}
+
+	if (bios_get_vbe_mode_info(mi_tmp, mode) != 0x004f) {
+		return -2;	
+	}
+
+	//serial_print("VBE: mode 0x%x - got it successfully...\n", mode);
+	memcpy(mode_info, mi_tmp, sizeof(*mode_info));
+	return 1;	
+}
+
+static int
+vbe_get_video_mode(uint32_t *mode)
+{
+	if (!vbe_probe(0)) {
+		return -1;	
+	}	
+
+	struct int_regs regs = {0};
+	regs.eax = 0x4f03;
+	regs.flags = 0x200;
 
   rm_int(0x10, &regs);
 
+	*mode = regs.ebx & 0xffff;
   return regs.eax & 0xffff;
 }
 
 static int
-vbe_set_video_mode(struct vbe_crtc_info_block *crtc_info, int32_t mode) 
+bios_set_video_mode(struct vbe_crtc_info_block *crtc_info, uint32_t mode)
 {
 	struct int_regs regs = {0};
 	regs.es = (((uintptr_t)crtc_info) & 0xffff0000) >> 4;
@@ -139,38 +293,90 @@ vbe_set_video_mode(struct vbe_crtc_info_block *crtc_info, int32_t mode)
   return regs.eax & 0xffff;
 }
 
-bool
-vbe_init(struct fb_info *ret, uint16_t target_width, uint16_t target_height, uint16_t target_bpp)
+static int
+vbe_set_video_mode(struct vbe_mode_info_block *mode_info, uint32_t mode) 
+{
+	(void)mode_info;
+
+	if (!vbe_probe(0)) {
+		return -1;	
+	}	
+
+	// maybe try to get and if fail, err?
+
+	/* For all VESA BIOS modes, force linear frame buffer.  */
+	if (mode >= 0x100) {
+		mode |= (1 << 14);
+	} 
+
+	if (bios_set_video_mode(0, mode) != 0x004f) {
+		return -2;
+	}
+
+	return 0;
+}
+
+static void *
+real2pm (uint32_t ptr)
+{
+  return (void *) ((((unsigned long) ptr & 0xFFFF0000) >> 12UL)
+                   + ((unsigned long) ptr & 0x0000FFFF));
+}
+
+static bool
+_vbe_init(void)
 {
 	serial_print("VBE: Initializing...\n");
-
-	size_t curr_fallback = 0;
-
-	struct vbe_info_block *vbe_info = (struct vbe_info_block *)SCRATCH_ADDR;
-	memset(vbe_info, 0, sizeof(struct vbe_info_block));
-	if (vbe_get_controller_info(vbe_info) != 0x4f) {
+	struct vbe_info_block info_block;
+	uint16_t *rm_vbe_mode_list, *p;
+	size_t vbe_mode_list_size;
+	
+	if (!vbe_probe(&info_block)) {
+		serial_print("VBE: ERROR: vbe_probe()\n");
 		return false;
 	}
 
-	serial_print("VBE: Version: %d.%d\n", vbe_info->version_hi, vbe_info->version_lo);
-	serial_print("VBE: OEM: %s\n", (char *)rm_desegment(vbe_info->oem_seg, vbe_info->oem_off));
-	serial_print("VBE: Graphics vendor: %s\n", (char *)rm_desegment(vbe_info->vendor_seg, vbe_info->vendor_off));
-	serial_print("VBE: Product name: %s\n", (char *)rm_desegment(vbe_info->prod_name_seg, vbe_info->prod_name_off));
-	serial_print("VBE: Product revision: %s\n", (char *)rm_desegment(vbe_info->prod_rev_seg, vbe_info->prod_rev_off));
+	serial_print("VBE: Version: %d.%d\n", info_block.version_hi, info_block.version_lo);
+	serial_print("VBE: OEM: %s\n", (char *)rm_desegment(info_block.oem_seg, info_block.oem_off));
+	serial_print("VBE: Graphics vendor: %s\n", (char *)rm_desegment(info_block.vendor_seg, info_block.vendor_off));
+	serial_print("VBE: Product name: %s\n", (char *)rm_desegment(info_block.prod_name_seg, info_block.prod_name_off));
+	serial_print("VBE: Product revision: %s\n", (char *)rm_desegment(info_block.prod_rev_seg, info_block.prod_rev_off));
 
-	uint32_t *vid_modes = (uint32_t *)rm_desegment(vbe_info->vid_modes_seg, vbe_info->vid_modes_off);
-	
-	struct resolution fallback_resolutions[] = {
-		{ 1024, 768, 32 },
-		{ 800,  600, 32 },
-		{ 640,  480, 32 },
-		{ 1024, 768, 24 },
-		{ 800,  600, 24 },
-		{ 640,  480, 24 },
-		{ 1024, 768, 16 },
-		{ 800,  600, 16 },
-		{ 640,  480, 16 }
-	};
+	uint32_t vm_ptr = rm_desegment(info_block.vid_modes_seg, info_block.vid_modes_off);
+	p = rm_vbe_mode_list = real2pm(vm_ptr);
+	while (*p++ != 0xffff);
+
+	vbe_mode_list_size = (uintptr_t)p - (uintptr_t)rm_vbe_mode_list;
+	vbe_mode_list = ext_mem_alloc(vbe_mode_list_size);
+
+	memcpy(vbe_mode_list, rm_vbe_mode_list, vbe_mode_list_size);
+
+	if (vbe_get_video_mode(&initial_vbe_mode) != 0x004f) {
+		serial_print("VBE: ERROR: vbe_get_video_mode()\n");
+
+		memmap_free(vbe_mode_list, vbe_mode_list_size);
+		return false;
+	}
+
+	serial_print("VBE: Initialized\n");
+	return true;
+}
+
+bool
+vbe_setup(struct fb_info *ret, uint16_t target_width, uint16_t target_height, uint16_t target_bpp) 
+{
+	if (!_vbe_init()) {
+		serial_print("VBE: Error in vbe init\n");
+		return false;
+	}
+
+	serial_print("VBE: Setting up...\n");
+
+	struct vbe_mode_info_block vbe_mode_info;
+	struct vbe_mode_info_block best_vbe_mode_info;
+	uint32_t best_vbe_mode = 0;
+	uint16_t *p;
+	int preferred_mode = 0;
 
 	if (!target_width || !target_height || !target_bpp) {
 		struct edid_record *edid_record = get_edid_record();	
@@ -181,178 +387,138 @@ vbe_init(struct fb_info *ret, uint16_t target_width, uint16_t target_height, uin
 			if (edid_width && edid_height) {
 				target_width = edid_width;
 				target_height = edid_height;
-				target_bpp = 32;
+				//target_bpp = 32; // force 32
 				serial_print("VBE: EDID detected screen resolution of %dx%d\n", target_width, target_height);
-				goto retry;
+				preferred_mode = 1;	
 			}
 		}
-		goto fallback;
-	} else {
-		serial_print("VBE: Requested resolution of %dx%dx%d\n", target_width, target_height, target_bpp);
 	}
 
-retry:
-	serial_print("VBE: Try with %dx%dx%d\n", target_width, target_height, target_bpp);
-	for (size_t i = 0; vid_modes[i] != 0xffff; ++i) {
-		struct vbe_mode_info_structure mode_info = {0};
+	/* walkthrough mode list and try to find matching mode */
+	for (p = vbe_mode_list; *p != 0xffff; ++p) {
+		uint32_t vbe_mode = *p;
 
-		if (vbe_get_mode_info(&mode_info, vid_modes[i]) != 0x004f) {
-			// what type of butterfly effect is this
-			serial_print("VBE: Could not retrieve mode info for 0x%x, moving on...\n", vid_modes[i]);
-			continue;	
+		int status = vbe_get_mode_info(&vbe_mode_info, vbe_mode);
+		if (status == 0) {
+			break;	
+		}
+		if (status < 0) {
+			if (status == -1) {
+				//serial_print("VBE: mode 0x%x - non-VESA, skipping...\n", mode);
+			} else if (status == -2) {
+				//serial_print("VBE: mode 0x%x - could not get mode info, skipping...\n", mode);
+			}
+			continue;
 		}
 
-		if (mode_info.res_x == target_width &&
-				mode_info.res_y == target_height &&
-				mode_info.bpp == target_bpp) {
-			/* I'll only support RGB probably */
-			if (mode_info.memory_model != 0x06) {
-				serial_print("VBE: Mode 0x%x is non-RGB, moving on...\n", vid_modes[i]);
+		if ((vbe_mode_info.mode_attributes & VBE_MODEATTR_GRAPHICS) == 0) {
+			//serial_print("VBE: Mode 0x%x isn't a graphics mode, skipping...\n", vbe_mode);
+			continue;
+		}
+		if ((vbe_mode_info.mode_attributes & VBE_MODEATTR_LFB_AVAIL) == 0) {
+			//serial_print("VBE: Mode 0x%x is non-linear, skipping...\n", vbe_mode);
+			continue;
+		}
+		if ((vbe_mode_info.mode_attributes & VBE_MODEATTR_SUPPORTED) == 0) {
+			//serial_print("VBE: Mode 0x%x is unsupported, skipping...\n", vbe_mode);
+			continue;
+		}
+		if ((vbe_mode_info.mode_attributes & VBE_MODEATTR_COLOR) == 0) {
+			//serial_print("VBE: Mode 0x%x is monochrome, skipping...\n", vbe_mode);
+			continue;
+		}
+		if ((vbe_mode_info.memory_model != VBE_MEMORY_MODEL_PACKED_PIXEL) && (vbe_mode_info.memory_model != VBE_MEMORY_MODEL_DIRECT_COLOR)) {
+			serial_print("VBE: Mode 0x%x has unsupported memory model, skipping...\n", vbe_mode);
+			continue;
+		}
+
+		if (target_bpp != 0 && vbe_mode_info.bpp != target_bpp) {
+			//serial_print("VBE: Mode 0x%x has depth that does not match targets, skipping...\n", vbe_mode);
+			continue;
+		}
+
+		if (vbe_mode_info.bpp != 8
+			&& vbe_mode_info.bpp != 15
+			&& vbe_mode_info.bpp != 16
+			&& vbe_mode_info.bpp != 24
+			&& vbe_mode_info.bpp != 32) {
+			//serial_print("VBE: Mode 0x%x has unsupported bit depth, skipping...\n", vbe_mode);
+			continue;
+		}
+
+		if (preferred_mode) {
+			if (vbe_mode_info.res_x > target_width || vbe_mode_info.res_y > target_height) {
+				//serial_print("VBE: Mode 0x%x has resolution that exceeds EDID, skipping...\n", vbe_mode);
 				continue;
 			}
-
-			/* only support linear modes */
-			if (!(mode_info.mode_attributes & (1 << 7))) {
-				serial_print("VBE: Mode 0x%x is non-linear, moving on...\n", vid_modes[i]);
-				continue;
-			}
-
-			serial_print("VBE: Found matching mode 0x%x, try to set...\n", vid_modes[i]);
-
-			/* For all VESA BIOS modes, force linear frame buffer.  */
-			if (vid_modes[i] >= 0x100) {
-				/* Only want linear fb */
-				vid_modes[i] |= 1 << 14;
-			}
-
-			if (vbe_set_video_mode(0, vid_modes[i]) != 0x004f) {
-				serial_print("VBE: Failed to set video mode 0x%x, moving on...\n", vid_modes[i]);
-			}
-
-			serial_print("VBE: (set) mode info fb address: 0x%x\n", mode_info.framebuffer_addr);
-			serial_print("VBE: (set) mode info resolution: %dx%dx%d\n", mode_info.res_x, mode_info.res_y, mode_info.bpp);
-
-			ret->memory_model = mode_info.memory_model;
-			ret->framebuffer_addr = mode_info.framebuffer_addr;
-			ret->framebuffer_width = mode_info.res_x;
-			ret->framebuffer_height = mode_info.res_y;
-			ret->framebuffer_bpp = mode_info.bpp;
-
-			if (vbe_info->version_hi < 3) {
-				ret->framebuffer_pitch = mode_info.bytes_per_scanline;
-				ret->red_mask_size = mode_info.red_mask_size;
-				ret->red_mask_shift = mode_info.red_mask_shift;
-				ret->green_mask_size = mode_info.green_mask_size;
-				ret->green_mask_shift = mode_info.green_mask_shift;
-				ret->blue_mask_size = mode_info.blue_mask_size;
-				ret->blue_mask_shift = mode_info.blue_mask_shift;
-			} else {
-				ret->framebuffer_pitch = mode_info.lin_bytes_per_scanline;
-				ret->red_mask_size = mode_info.lin_red_mask_size;
-				ret->red_mask_shift = mode_info.lin_red_mask_shift;
-				ret->green_mask_size = mode_info.lin_green_mask_size;
-				ret->green_mask_shift = mode_info.lin_green_mask_shift;
-				ret->blue_mask_size = mode_info.lin_blue_mask_size;
-				ret->blue_mask_shift = mode_info.lin_blue_mask_shift;
-			}
-
-			fb_clear(ret);
-
-			return true;
-		}
-	}
-
-fallback:
-	if (curr_fallback < SIZEOF_ARRAY(fallback_resolutions)) {
-		target_width = fallback_resolutions[curr_fallback].width;
-		target_height = fallback_resolutions[curr_fallback].height;
-		target_bpp = fallback_resolutions[curr_fallback].bpp;
-		++curr_fallback;
-		goto retry;		
-	}
-
-	return false;
-}
-
-struct fb_info *
-vbe_get_mode_list(size_t *count)
-{
-	struct vbe_info_block *vbe_info = (struct vbe_info_block *)SCRATCH_ADDR;
-	memset(vbe_info, 0, sizeof(struct vbe_info_block));
-	if (vbe_get_controller_info(vbe_info) != 0x4f) {
-		return NULL;
-	}
-
-	uint32_t *vid_modes = (uint32_t *)rm_desegment(vbe_info->vid_modes_seg, vbe_info->vid_modes_off);
-	size_t mode_count = 0;
-
-	for (size_t i = 0; vid_modes[i] != 0xffff; ++i) {
-		struct vbe_mode_info_structure mode_info = {0};
-
-		if (vbe_get_mode_info(&mode_info, vid_modes[i]) != 0x004f) {
-			continue;	
-		}
-
-		/* I'll only support RGB probably */
-		if (mode_info.memory_model != 0x06) {
-			continue;
-		}
-
-		/* only support linear modes */
-		if (!(mode_info.mode_attributes & (1 << 7))) {
-			continue;
-		}
-
-		++mode_count;
-	}
-
-	struct fb_info *ret = ext_mem_alloc(mode_count * sizeof(struct fb_info));
-
-	for (size_t i = 0, j = 0; vid_modes[i] != 0xffff; ++i) {
-		struct vbe_mode_info_structure mode_info = {0};
-
-		if (vbe_get_mode_info(&mode_info, vid_modes[i]) != 0x004f) {
-			continue;	
-		}
-
-		/* I'll only support RGB probably */
-		if (mode_info.memory_model != 0x06) {
-			continue;
-		}
-
-		/* only support linear modes */
-		if (!(mode_info.mode_attributes & (1 << 7))) {
-			continue;
-		}
-
-		ret[j].memory_model = mode_info.memory_model;
-		ret[j].framebuffer_addr = mode_info.framebuffer_addr;
-		ret[j].framebuffer_width = mode_info.res_x;
-		ret[j].framebuffer_height = mode_info.res_y;
-		ret[j].framebuffer_bpp = mode_info.bpp;
-
-		if (vbe_info->version_hi < 3) {
-			ret[j].framebuffer_pitch = mode_info.bytes_per_scanline;
-			ret[j].red_mask_size = mode_info.red_mask_size;
-			ret[j].red_mask_shift = mode_info.red_mask_shift;
-			ret[j].green_mask_size = mode_info.green_mask_size;
-			ret[j].green_mask_shift = mode_info.green_mask_shift;
-			ret[j].blue_mask_size = mode_info.blue_mask_size;
-			ret[j].blue_mask_shift = mode_info.blue_mask_shift;
 		} else {
-			ret[j].framebuffer_pitch = mode_info.lin_bytes_per_scanline;
-			ret[j].red_mask_size = mode_info.lin_red_mask_size;
-			ret[j].red_mask_shift = mode_info.lin_red_mask_shift;
-			ret[j].green_mask_size = mode_info.lin_green_mask_size;
-			ret[j].green_mask_shift = mode_info.lin_green_mask_shift;
-			ret[j].blue_mask_size = mode_info.lin_blue_mask_size;
-			ret[j].blue_mask_shift = mode_info.lin_blue_mask_shift;
+			if (((vbe_mode_info.res_x != target_width) || (vbe_mode_info.res_y != target_height))
+					&& target_width != 0 && target_height != 0) {
+				//serial_print("VBE: Mode 0x%x has resolution that does not match targets, skipping...\n", vbe_mode);
+				continue;
+			}
 		}
 
-		++j;
+		/* select largest mode available (preferably target but we'll take what we can get) */
+		if (best_vbe_mode != 0) {
+			if ((uint64_t)vbe_mode_info.bpp * vbe_mode_info.res_x * vbe_mode_info.res_y < 
+					(uint64_t)best_vbe_mode_info.bpp * best_vbe_mode_info.res_x * best_vbe_mode_info.res_y)	{
+				//serial_print("VBE: Mode 0x%x is too small, skipping...\n", vbe_mode);
+				continue;
+			}
+		}
+
+		best_vbe_mode = vbe_mode;
+		memcpy(&best_vbe_mode_info, &vbe_mode_info, sizeof(best_vbe_mode_info));
 	}
 
-	*count = mode_count;
-	return ret;
+	serial_print("VBE: Best vbe mode: 0x%x, ", best_vbe_mode);
+	serial_print("%dx", best_vbe_mode_info.res_x);
+	serial_print("%dx", best_vbe_mode_info.res_y);
+	serial_print("%d\n", best_vbe_mode_info.bpp);
+
+	/* try to set best VBE mode */
+	if (best_vbe_mode != 0) {
+		// DOESN'T WORK?
+		if (vbe_set_video_mode(0, best_vbe_mode) != 0) {
+			serial_print("VBE: ERROR: Could not set video mode 0x%x!\n", best_vbe_mode);
+			return false;
+		}
+	} else {
+		serial_print("VBE: ERROR: Could not find a matching video mode!\n");
+		return false;
+	}
+
+	serial_print("VBE: Set the video mode for 0x%x\n", best_vbe_mode);
+
+	ret->memory_model = best_vbe_mode_info.memory_model;
+	ret->framebuffer_addr = best_vbe_mode_info.framebuffer_addr;
+	ret->framebuffer_width = best_vbe_mode_info.res_x;
+	ret->framebuffer_height = best_vbe_mode_info.res_y;
+	ret->framebuffer_bpp = best_vbe_mode_info.bpp;
+
+	if (controller_info.version_hi < 3) {
+		ret->framebuffer_pitch = best_vbe_mode_info.bytes_per_scanline;
+		ret->red_mask_size = best_vbe_mode_info.red_mask_size;
+		ret->red_mask_shift = best_vbe_mode_info.red_mask_shift;
+		ret->green_mask_size = best_vbe_mode_info.green_mask_size;
+		ret->green_mask_shift = best_vbe_mode_info.green_mask_shift;
+		ret->blue_mask_size = best_vbe_mode_info.blue_mask_size;
+		ret->blue_mask_shift = best_vbe_mode_info.blue_mask_shift;
+	} else {
+		ret->framebuffer_pitch = best_vbe_mode_info.lin_bytes_per_scanline;
+		ret->red_mask_size = best_vbe_mode_info.lin_red_mask_size;
+		ret->red_mask_shift = best_vbe_mode_info.lin_red_mask_shift;
+		ret->green_mask_size = best_vbe_mode_info.lin_green_mask_size;
+		ret->green_mask_shift = best_vbe_mode_info.lin_green_mask_shift;
+		ret->blue_mask_size = best_vbe_mode_info.lin_blue_mask_size;
+		ret->blue_mask_shift = best_vbe_mode_info.lin_blue_mask_shift;
+	}
+
+	fb_clear(ret);
+
+	// vbe2videoinfo();
+
+	return true;
 }
 

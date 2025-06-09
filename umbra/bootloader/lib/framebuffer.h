@@ -27,8 +27,8 @@ struct fb_info {
 
 	struct edid_record *edid;
 
-	uint64_t mode_count;
-	struct fb_info *mode_list;
+	//uint64_t mode_count;
+	//struct fb_info *mode_list;
 };
 
 void fb_clear(struct fb_info *fb);
