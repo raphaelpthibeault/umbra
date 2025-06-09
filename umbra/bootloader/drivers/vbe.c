@@ -172,13 +172,13 @@ vbe_get_controller_info(struct vbe_info_block *ci)
 {
 	struct int_regs regs = {0};
 	regs.es = (((uintptr_t)ci) & 0xffff0000) >> 4;
-  regs.edi = ((uintptr_t)ci) & 0xffff;
-  regs.eax = 0x4f00;
-  regs.flags = 0x200;
-
-  rm_int(0x10, &regs);
-
-  return regs.eax & 0xffff;
+	regs.edi = ((uintptr_t)ci) & 0xffff;
+	regs.eax = 0x4f00;
+	regs.flags = 0x200;
+	
+	rm_int(0x10, &regs);
+	
+	return regs.eax & 0xffff;
 }
 
 bool
