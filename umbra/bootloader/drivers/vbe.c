@@ -21,16 +21,16 @@ typedef enum {
 	VIDEO_MODE_TYPE_INDEX_COLOR = 0x00000002,
 	VIDEO_MODE_TYPE_1BIT_BITMAP = 0x00000004,
 	VIDEO_MODE_TYPE_YUV = 0x00000008,
-
+	
 	/* defines used to mask flags.  */
 	VIDEO_MODE_TYPE_COLOR_MASK = 0x0000000F,
-
+	
 	VIDEO_MODE_TYPE_DOUBLE_BUFFERED = 0x00000010,
 	VIDEO_MODE_TYPE_ALPHA = 0x00000020,
 	VIDEO_MODE_TYPE_PURE_TEXT = 0x00000040,
 	VIDEO_MODE_TYPE_UPDATING_SWAP = 0x00000080,
 	VIDEO_MODE_TYPE_OPERATIONAL_MASK = 0x000000F0,
-
+	
 	/* defines used to specify requested bit depth.  */
 	VIDEO_MODE_TYPE_DEPTH_MASK = 0x0000FF00,
 #define VIDEO_MODE_TYPE_DEPTH_POS 8
@@ -44,36 +44,36 @@ typedef enum {
 } video_mode_type_t;
 
 struct video_mode_info {
-  unsigned int width;
-  unsigned int height;
-  video_mode_type_t mode_type; /* Mode type bitmask, has information like is it Index color or RGB mode.  */
-  unsigned int bpp; /* Bits per pixel.  */
-  unsigned int bytes_per_pixel; /* Bytes per pixel.  */
-  unsigned int pitch; /* Pitch of one scanline.  How many bytes there are for scanline.  */
-  unsigned int number_of_colors; /* In index color mode, number of colors.  In RGB mode this is 256.  */
-  unsigned int mode_number;
-#define GRUB_VIDEO_MODE_NUMBER_INVALID 0xffffffff
+	unsigned int width;
+	unsigned int height;
+	video_mode_type_t mode_type; /* Mode type bitmask, has information like is it Index color or RGB mode.  */
+	unsigned int bpp; /* Bits per pixel.  */
+	unsigned int bytes_per_pixel; /* Bytes per pixel.  */
+	unsigned int pitch; /* Pitch of one scanline.  How many bytes there are for scanline.  */
+	unsigned int number_of_colors; /* In index color mode, number of colors.  In RGB mode this is 256.  */
+	unsigned int mode_number;
+#define VIDEO_MODE_NUMBER_INVALID 0xffffffff
 
-  unsigned int red_mask_size; 
-  unsigned int red_field_pos;
-  unsigned int green_mask_size;
-  unsigned int green_field_pos;
-  unsigned int blue_mask_size;
-  unsigned int blue_field_pos;
-  unsigned int reserved_mask_size;
-  unsigned int reserved_field_pos;
-
-  /* For 1-bit bitmaps, the background color.  Used for bits = 0.  */
-  uint8_t bg_red;
-  uint8_t bg_green;
-  uint8_t bg_blue;
-  uint8_t bg_alpha;
-
-  /* For 1-bit bitmaps, the foreground color.  Used for bits = 1.  */
-  uint8_t fg_red;
-  uint8_t fg_green;
-  uint8_t fg_blue;
-  uint8_t fg_alpha;	
+ unsigned int red_mask_size; 
+ unsigned int red_field_pos;
+ unsigned int green_mask_size;
+ unsigned int green_field_pos;
+ unsigned int blue_mask_size;
+ unsigned int blue_field_pos;
+ unsigned int reserved_mask_size;
+ unsigned int reserved_field_pos;
+ 
+ /* For 1-bit bitmaps, the background color.  Used for bits = 0.  */
+ uint8_t bg_red;
+ uint8_t bg_green;
+ uint8_t bg_blue;
+ uint8_t bg_alpha;
+ 
+ /* For 1-bit bitmaps, the foreground color.  Used for bits = 1.  */
+ uint8_t fg_red;
+ uint8_t fg_green;
+ uint8_t fg_blue;
+ uint8_t fg_alpha;	
 };
 struct vbe_info_block {
 	char signature[4];
@@ -106,7 +106,7 @@ struct vbe_mode_info_block  {
 	uint16_t winb_segment;
 	uint32_t win_farptr;
 	uint16_t bytes_per_scanline;
-
+	
 	uint16_t res_x;
 	uint16_t res_y;
 	uint8_t  charsize_x;
@@ -118,7 +118,7 @@ struct vbe_mode_info_block  {
 	uint8_t  bank_size;
 	uint8_t  image_count;
 	uint8_t  reserved0;
-
+	
 	uint8_t  red_mask_size;
 	uint8_t  red_mask_shift;
 	uint8_t  green_mask_size;
@@ -128,10 +128,10 @@ struct vbe_mode_info_block  {
 	uint8_t  rsvd_mask_size;
 	uint8_t  rsvd_mask_shift;
 	uint8_t  direct_color_info;
-
+	
 	uint32_t framebuffer_addr;
 	uint8_t  reserved1[6];
-
+	
 	uint16_t lin_bytes_per_scanline;
 	uint8_t  banked_image_count;
 	uint8_t  lin_image_count;
@@ -144,21 +144,21 @@ struct vbe_mode_info_block  {
 	uint8_t  lin_rsvd_mask_size;
 	uint8_t  lin_rsvd_mask_shift;
 	uint32_t max_pixel_clock;
-
+	
 	uint8_t  reserved2[190];
 } __attribute__((packed));
 
 struct vbe_crtc_info_block {
 	uint16_t horizontal_total;
-  uint16_t horizontal_sync_start;
-  uint16_t horizontal_sync_end;
-  uint16_t vertical_total;
-  uint16_t vertical_sync_start;
-  uint16_t vertical_sync_end;
-  uint8_t flags;
-  uint32_t pixel_clock;
-  uint16_t refresh_rate;
-  uint8_t reserved[40];	
+	uint16_t horizontal_sync_start;
+	uint16_t horizontal_sync_end;
+	uint16_t vertical_total;
+	uint16_t vertical_sync_start;
+	uint16_t vertical_sync_end;
+	uint8_t flags;
+	uint32_t pixel_clock;
+	uint16_t refresh_rate;
+	uint8_t reserved[40];	
 } __attribute__((packed));
 
 static struct vbe_info_block controller_info;
