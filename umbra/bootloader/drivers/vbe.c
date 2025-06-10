@@ -404,37 +404,26 @@ vbe_setup(struct fb_info *ret, uint16_t target_width, uint16_t target_height, ui
 			break;	
 		}
 		if (status < 0) {
-			if (status == -1) {
-				//serial_print("VBE: mode 0x%x - non-VESA, skipping...\n", mode);
-			} else if (status == -2) {
-				//serial_print("VBE: mode 0x%x - could not get mode info, skipping...\n", mode);
-			}
 			continue;
 		}
 
 		if ((vbe_mode_info.mode_attributes & VBE_MODEATTR_GRAPHICS) == 0) {
-			//serial_print("VBE: Mode 0x%x isn't a graphics mode, skipping...\n", vbe_mode);
 			continue;
 		}
 		if ((vbe_mode_info.mode_attributes & VBE_MODEATTR_LFB_AVAIL) == 0) {
-			//serial_print("VBE: Mode 0x%x is non-linear, skipping...\n", vbe_mode);
 			continue;
 		}
 		if ((vbe_mode_info.mode_attributes & VBE_MODEATTR_SUPPORTED) == 0) {
-			//serial_print("VBE: Mode 0x%x is unsupported, skipping...\n", vbe_mode);
 			continue;
 		}
 		if ((vbe_mode_info.mode_attributes & VBE_MODEATTR_COLOR) == 0) {
-			//serial_print("VBE: Mode 0x%x is monochrome, skipping...\n", vbe_mode);
 			continue;
 		}
 		if ((vbe_mode_info.memory_model != VBE_MEMORY_MODEL_PACKED_PIXEL) && (vbe_mode_info.memory_model != VBE_MEMORY_MODEL_DIRECT_COLOR)) {
-			serial_print("VBE: Mode 0x%x has unsupported memory model, skipping...\n", vbe_mode);
 			continue;
 		}
 
 		if (target_bpp != 0 && vbe_mode_info.bpp != target_bpp) {
-			//serial_print("VBE: Mode 0x%x has depth that does not match targets, skipping...\n", vbe_mode);
 			continue;
 		}
 
@@ -443,19 +432,16 @@ vbe_setup(struct fb_info *ret, uint16_t target_width, uint16_t target_height, ui
 			&& vbe_mode_info.bpp != 16
 			&& vbe_mode_info.bpp != 24
 			&& vbe_mode_info.bpp != 32) {
-			//serial_print("VBE: Mode 0x%x has unsupported bit depth, skipping...\n", vbe_mode);
 			continue;
 		}
 
 		if (preferred_mode) {
 			if (vbe_mode_info.res_x > target_width || vbe_mode_info.res_y > target_height) {
-				//serial_print("VBE: Mode 0x%x has resolution that exceeds EDID, skipping...\n", vbe_mode);
 				continue;
 			}
 		} else {
 			if (((vbe_mode_info.res_x != target_width) || (vbe_mode_info.res_y != target_height))
 					&& target_width != 0 && target_height != 0) {
-				//serial_print("VBE: Mode 0x%x has resolution that does not match targets, skipping...\n", vbe_mode);
 				continue;
 			}
 		}
@@ -464,7 +450,6 @@ vbe_setup(struct fb_info *ret, uint16_t target_width, uint16_t target_height, ui
 		if (best_vbe_mode != 0) {
 			if ((uint64_t)vbe_mode_info.bpp * vbe_mode_info.res_x * vbe_mode_info.res_y < 
 					(uint64_t)best_vbe_mode_info.bpp * best_vbe_mode_info.res_x * best_vbe_mode_info.res_y)	{
-				//serial_print("VBE: Mode 0x%x is too small, skipping...\n", vbe_mode);
 				continue;
 			}
 		}
@@ -517,8 +502,6 @@ vbe_setup(struct fb_info *ret, uint16_t target_width, uint16_t target_height, ui
 	}
 
 	fb_clear(ret);
-
-	// vbe2videoinfo();
 
 	return true;
 }
