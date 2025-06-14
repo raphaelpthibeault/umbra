@@ -13,6 +13,8 @@ _boot_menu(void)
 
 	terminal_init();
 
+	/* print fs tree */
+
 	while(1);	
 }
 
