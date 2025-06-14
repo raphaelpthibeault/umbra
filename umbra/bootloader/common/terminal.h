@@ -23,9 +23,14 @@ struct fb_char {
 	uint32_t bg;
 };
 
+struct fb_queue_item {
+	size_t x, y;
+	struct fb_char c;	
+};
+
 struct terminal_ctx {
 	uint32_t *fb;	
-	struct video_mode_info; // TODO
+	//struct video_mode_info; // TODO
 
 	size_t rows, cols;	
 	size_t height, width;
@@ -35,14 +40,24 @@ struct terminal_ctx {
 	size_t offset_x;
 	size_t offset_y;
 
+	size_t cursor_x;
+	size_t cursor_y;
 
 	size_t grid_size;
 	struct fb_char *grid;
+
+	size_t queue_i;
+	size_t queue_size;
+	struct fb_queue_item *queue;
+	size_t map_size;
+	struct fb_queue_item **map;
+
 	size_t font_height;
 	size_t font_width;
+	size_t font_bool_size;
+	bool *font_bool;
 	size_t glyph_width;
 	size_t glyph_height;
-
 
 	uint32_t bg_color;
 	uint32_t fg_color;
@@ -55,6 +70,9 @@ struct terminal_ctx {
 	uint8_t blue_mask_shift;
 
 	bool cursor_enabled;
+
+	uint32_t ansi_colors[8];
+	uint32_t ansi_bright_colors[8];
 };
 
 
