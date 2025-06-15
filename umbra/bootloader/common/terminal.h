@@ -6,6 +6,9 @@
 #include <types.h>
 #include <lib/video.h>
 
+/* determines whether or not a newline is carriage return */
+#define OOB_OUTPUT_ONLCR (1 << 4)
+
 typedef struct {
 	const char *name;
 	const char *path;
@@ -30,7 +33,6 @@ struct fb_queue_item {
 
 struct terminal_ctx {
 	uint32_t *fb;	
-	//struct video_mode_info; // TODO
 
 	size_t rows, cols;	
 	size_t height, width;
@@ -40,8 +42,11 @@ struct terminal_ctx {
 	size_t offset_x;
 	size_t offset_y;
 
-	size_t cursor_x;
-	size_t cursor_y;
+	size_t cursor_x, old_cursor_x;
+	size_t cursor_y, old_cursor_y;
+
+	size_t scroll_top_margin;
+	size_t scroll_bottom_margin;
 
 	size_t grid_size;
 	struct fb_char *grid;
@@ -56,6 +61,9 @@ struct terminal_ctx {
 	size_t font_width;
 	size_t font_bool_size;
 	bool *font_bool;
+	size_t font_bits_size;
+	uint8_t *font_bits;
+
 	size_t glyph_width;
 	size_t glyph_height;
 
@@ -70,14 +78,15 @@ struct terminal_ctx {
 	uint8_t blue_mask_shift;
 
 	bool cursor_enabled;
+	bool scroll_enabled;
 
 	uint32_t ansi_colors[8];
 	uint32_t ansi_bright_colors[8];
+
+	size_t oob_output;
 };
 
-
-
-
 bool terminal_init(void);
+void terminal_write(const char *msg);
 
 #endif // !__TERMINAL_H__

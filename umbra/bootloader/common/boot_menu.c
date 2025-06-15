@@ -11,9 +11,19 @@ _boot_menu(void)
 	clearwin(COLOR_GRN, COLOR_BLK);
 	hide_cursor();
 
-	terminal_init();
+	if (!terminal_init())
+	{
+		serial_print("[PANIC] error initializating terminal\n");
+		while (1);
+	}
+
+	terminal_write("*** Bootloader Terminal***\n>\n");
 
 	/* print fs tree */
+
+	/* keyboard interrupts */
+
+	/* load user's chosen kernel (umbra) */
 
 	while(1);	
 }
