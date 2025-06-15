@@ -13,13 +13,13 @@ rm_int:
 
 	cli
 	popf
-	pushl    %ebp
-	pushl    %ecx
-	pushl    %eax
-	pushl    %ebx
-	pushl    %esi
-	pushl    %edi	
-	pushl    %edx
+	pushl %ebp
+	pushl %ecx
+	pushl %eax
+	pushl %ebx
+	pushl %esi
+	pushl %edi	
+	pushl %edx
 
 	# get function parameters
 	movb %al, intnb 
@@ -115,12 +115,12 @@ intnb:
 	movl bios_register_ecx, %eax
 	movl %eax, 16(%edx)
 
-	popl %edi
-	popl %esi
-	popl %ebx
-	popl %eax
-	popl %ecx
-	popl %ebp
+	popl	%edi
+	popl	%esi
+	popl	%ebx
+	popl	%eax
+	popl	%ecx
+	popl	%ebp
 	ret
 
 	.data

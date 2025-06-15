@@ -4,6 +4,8 @@
 #include <common/terminal.h>
 #include <drivers/serial.h>
 
+#include <arch/x86_64/kbd.h>
+
 noreturn void
 _boot_menu(void)
 {
@@ -17,13 +19,21 @@ _boot_menu(void)
 		while (1);
 	}
 
-	terminal_write("*** Bootloader Terminal***\n>\n");
+	terminal_write("***** Bootloader Terminal *****\n>\n");
 
-	/* print fs tree */
+	/* TODO: flush IRQs */
+	/* TODO: init IO APICS */
 
-	/* keyboard interrupts */
+	/* TODO: print fs tree */
 
-	/* load user's chosen kernel (umbra) */
+	/* TODO: keyboard interrupts */
+	int c;
+	for (;;) {
+		serial_print("calling getchar... \n");
+		c = getchar();
+	}
+
+	/* TODO: load user's chosen kernel (umbra) */
 
 	while(1);	
 }
