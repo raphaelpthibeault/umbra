@@ -6,6 +6,7 @@
 	 * (in this case only the first 2)
 	 *	regs serves as both an in and out variable 
 	**/
+	.section .realmode
 	.globl rm_int
 rm_int:
 	.code32
@@ -123,7 +124,6 @@ intnb:
 	popl	%ebp
 	ret
 
-	.data
 bios_register_ebx:
 	.long 0
 bios_register_ecx:

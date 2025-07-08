@@ -6,11 +6,14 @@
 
 #include <arch/x86_64/kbd.h>
 
+
+#include <drivers/vbe.h>
+#include <lib/framebuffer.h>
 noreturn void
 _boot_menu(void)
 {
 	/* VGA turn off */
-	clearwin(COLOR_GRN, COLOR_BLK);
+	clearwin(COLOR_WHT, COLOR_BLK);
 	hide_cursor();
 
 	if (!terminal_init())
@@ -19,6 +22,7 @@ _boot_menu(void)
 		while (1);
 	}
 
+	serial_print("Terminal: Initialized\n");
 	terminal_write("***** Bootloader Terminal *****\n>\n");
 
 	/* TODO: flush IRQs */
@@ -26,11 +30,10 @@ _boot_menu(void)
 
 	/* TODO: print fs tree */
 
-	/* TODO: keyboard interrupts */
 	int c;
 	for (;;) {
-		serial_print("calling getchar... \n");
 		c = getchar();
+		serial_print("kbd in c: %d \n", c);
 	}
 
 	/* TODO: load user's chosen kernel (umbra) */

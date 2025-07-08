@@ -360,9 +360,10 @@ static inline __attribute__((always_inline)) uint32_t
 convert_color(uint32_t color)
 {
 	/* assuming 24-bit RGB, no A */
-	uint32_t r = (color >> 16) & 0xff;
-	uint32_t b = (color >> 8) & 0xff;
-	uint32_t g = color & 0xff;
+	uint32_t r = ((color >> 16) & 0xff) >> (8 - ctx->red_mask_size);
+	uint32_t g = ((color >> 8) & 0xff) >> (8 - ctx->green_mask_size);
+	uint32_t b = (color & 0xff) >> (8 - ctx->blue_mask_size);
+
 	return (r << ctx->red_mask_shift) | (g << ctx->green_mask_shift) | (b << ctx->blue_mask_shift);
 }
 
@@ -419,37 +420,6 @@ draw_cursor(void)
 	{
 		ctx->grid[i] = q->c;
 		ctx->map[i] = NULL;
-	}
-}
-
-static void 
-refresh(void) 
-{
-	if (ctx == NULL) return;
-
-	serial_print("Terminal: Refreshing screen...\n");
-	
-	uint32_t bg = ctx->bg_color;
-
-	for (size_t y = 0; y < ctx->height; ++y) 
-	{
-		for (size_t x = 0; x < ctx->width; ++x) 
-		{
-			ctx->fb[y * (ctx->pitch / ctx->bytes_per_pixel) + x] = bg;
-		}
-	}
-
-	for (size_t i = 0; i < ctx->rows * ctx->cols; ++i) 
-	{
-		size_t x = i % ctx->cols;
-		size_t y = i / ctx->cols;
-		
-		plot_char(&ctx->grid[i], x, y);
-	}
-
-	if (ctx->cursor_enabled) 
-	{
-		draw_cursor();
 	}
 }
 
@@ -512,6 +482,35 @@ double_buffer_flush(void)
 	ctx->old_cursor_x = ctx->cursor_x;
 	ctx->old_cursor_y = ctx->cursor_y;
 	ctx->queue_i = 0;
+}
+
+static void 
+refresh(void) 
+{
+	if (ctx == NULL) return;
+
+	serial_print("Terminal: Refreshing ...\n");
+	
+	uint32_t bg = ctx->bg_color;
+
+	for (size_t y = 0; y < ctx->height; ++y) 
+	{
+		for (size_t x = 0; x < ctx->width; ++x) 
+		{
+			ctx->fb[y * (ctx->pitch / ctx->bytes_per_pixel) + x] = bg;
+		}
+	}
+
+	for (size_t i = 0; i < ctx->rows * ctx->cols; ++i) 
+	{
+		size_t x = i % ctx->cols;
+		size_t y = i / ctx->cols;
+		
+		plot_char(&ctx->grid[i], x, y);
+	}
+
+	if (ctx->cursor_enabled) 
+		draw_cursor();
 }
 
 static void
@@ -672,7 +671,7 @@ terminal_init(void)
 		return false;
 	}
 
-	serial_print("Terminal: initialized with dims %dx%dx%d\n", (uint16_t)fb->framebuffer_width, (uint16_t)fb->framebuffer_height, (uint16_t)fb->framebuffer_bpp);
+	serial_print("Terminal: initialized framebuffer with dims %dx%dx%d\n", (uint16_t)fb->framebuffer_width, (uint16_t)fb->framebuffer_height, (uint16_t)fb->framebuffer_bpp);
 
 	/* initialize graphics then return to menu */
 	// default scheme
@@ -704,13 +703,16 @@ terminal_init(void)
 
 	ctx = ext_mem_alloc(sizeof(struct terminal_ctx));
 	if (!ctx) 
+	{
+		serial_print("ERROR: Terminal: Could not alloc ctx\n");
 		goto fail;
+	}
 
   uint32_t default_bg = 0x00000000; // background (black)
 	uint32_t default_fg = 0x00aaaaaa; // foreground (grey)
 
-  uint32_t default_bg_bright = 0x00555555; // background (black)
-  uint32_t default_fg_bright = 0x00ffffff; // foreground (grey)
+  //uint32_t default_bg_bright = 0x00555555; // background (black)
+  //uint32_t default_fg_bright = 0x00ffffff; // foreground (grey)
 
 	size_t font_width = 8;
 	size_t font_height = 16;
@@ -732,13 +734,19 @@ terminal_init(void)
 	ctx->font_bits_size = font_size; 
 	ctx->font_bits = ext_mem_alloc(ctx->font_bits_size);
 	if (!ctx->font_bits)
+	{
+		serial_print("ERROR: Terminal: Could not alloc font\n");
 		goto fail;
+	}
 	memcpy(ctx->font_bits, builtin_font, ctx->font_bits_size);
 
 	ctx->font_bool_size = 256 * ctx->font_height * ctx->font_width * sizeof(bool);
 	ctx->font_bool = ext_mem_alloc(ctx->font_bool_size);
 	if (!ctx->font_bool)
+	{
+		serial_print("ERROR: Terminal: Could not alloc font bool\n");
 		goto fail;
+	}
 
 	for (size_t i = 0; i < 256; ++i)
 	{
@@ -794,14 +802,17 @@ terminal_init(void)
 	ctx->green_mask_shift = fb->green_mask_shift;
 	ctx->blue_mask_size	  = fb->blue_mask_size;
 	ctx->blue_mask_shift  = fb->blue_mask_shift;
-
+	
 	ctx->bg_color = convert_color(default_bg);
 	ctx->fg_color = convert_color(default_fg);
 
 	ctx->grid_size = ctx->rows * ctx->cols * sizeof(struct fb_char);
 	ctx->grid = ext_mem_alloc(ctx->grid_size);
 	if (!ctx->grid)
+	{
+		serial_print("ERROR: Terminal: Could not alloc grid\n");
 		goto fail;
+	}
 
 	for (size_t i = 0; i < ctx->rows * ctx->cols; i++) 
 	{
@@ -813,14 +824,20 @@ terminal_init(void)
 	ctx->queue_size = ctx->rows * ctx->cols * sizeof(struct fb_queue_item);
 	ctx->queue = ext_mem_alloc(ctx->queue_size);
 	if (!ctx->queue)
+	{
+		serial_print("ERROR: Terminal: Could not alloc fb queue\n");
 		goto fail;
+	}
 	memset(ctx->queue, 0, ctx->queue_size);
 	ctx->queue_i = 0;
 
 	ctx->map_size = ctx->rows * ctx->cols * sizeof(struct fb_queue_item);
 	ctx->map = ext_mem_alloc(ctx->map_size);
 	if (!ctx->map)
+	{
+		serial_print("ERROR: Terminal: Could not alloc fb map\n");
 		goto fail;
+	}
 	memset(ctx->map, 0, ctx->map_size);	
 
 	ctx->cursor_enabled = true;
@@ -839,6 +856,8 @@ terminal_init(void)
 
 fail:
 	/* parse through what was initialized and what wasn't */
+
+	serial_print("ERROR: Terminal: Terminal Init FAILED\n");
 
 	if (ctx == NULL) 
 		return false;

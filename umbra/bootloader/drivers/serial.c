@@ -1,6 +1,7 @@
 #include "serial.h"
 #include <types.h>
 #include <lib/arg.h>
+#include <lib/misc.h>
 
 #include <arch/x86_64/cpu.h>
 
@@ -184,4 +185,76 @@ putc:
 
 	*dst = 0;
 	return dst - orig;
+}
+
+
+static uint8_t hex_lookup[16] = {
+	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+};
+
+static void
+byte_to_hex_string(uint8_t byte, char *out)
+{
+	out[0] = hex_lookup[(byte>>4)&0xf];
+	out[1] = hex_lookup[byte&0xf];
+	out[2] = '\0';
+}
+
+void 
+serial_print_buffer_hex(void *buf, size_t size)
+{
+	if (buf == NULL) 
+	{
+		serial_print("(NULL buf)\n");
+		return;
+	}
+	if (size == 0) 
+	{
+		serial_print("(empty buf)\n");
+		return;
+	}
+
+	unsigned char *p = (unsigned char *)buf;
+	char hex_representation[3];
+	// process one char at a time 
+	// max 16 hex digits for a 64-bit size_t, plus null terminator.
+	char offset_str_buf[17];
+
+	const size_t bytes_per_line = 16; 
+
+	for (size_t i = 0; i < size; ++i) 
+	{
+		if (i % bytes_per_line == 0) 
+		{
+			if (i > 0) 
+			{
+				serial_print("\n");
+			}
+
+			itoa(i, offset_str_buf, 16);
+
+			serial_print("%s", offset_str_buf);
+
+			serial_print(":");
+			serial_print(" ");
+		}
+
+		byte_to_hex_string(p[i], hex_representation);
+		serial_print("%s", hex_representation);
+
+		if (i < size - 1) {
+
+			if ((i + 1) % bytes_per_line != 0) 
+			{ 
+				serial_print(" ");
+
+				if ((bytes_per_line / 2 > 0) && ((i + 1) % (bytes_per_line / 2) == 0)) 
+				{
+					serial_print(" ");
+				}
+			}
+		}
+	}
+
+	serial_print("\n");
 }

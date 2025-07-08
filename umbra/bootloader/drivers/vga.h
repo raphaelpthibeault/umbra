@@ -33,12 +33,8 @@ typedef struct {
     char style;
 } __attribute__((packed)) vga_char_t;
 
-/* get char to use as style char */
-uint8_t vga_color(const uint8_t fg, const uint8_t bg);
 /* clear window */
 void clearwin(const uint8_t fg, const uint8_t bg);
-/* put char on screen */
-void putchar(const char c, const uint8_t fg, const uint8_t bg);
 /* put string on screen */
 void putstr(const char *str, const uint8_t fg, const uint8_t bg);
 

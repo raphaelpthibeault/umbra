@@ -14,7 +14,6 @@ getchar(void)
 	while (true)
 	{
 		int ret = pit_sleep_and_quit_on_keypress(65535);
-		serial_print("ret: %d\n", ret);
 		if (ret != 0)
 			return ret;
 	}

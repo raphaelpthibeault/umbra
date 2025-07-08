@@ -56,7 +56,7 @@ main:
 	
 	/* print notificatin message to screen */	
 	movw $notification_string, %si
-	call putstr
+	call message
 
 	/* goal: the goal here is to load the first sector of stage 2, and then have stage2 figure the rest out
 	 * location: 0x8000
@@ -137,25 +137,25 @@ copy_buffer:
 panic:
 	/* print panic message to screen */	
 	movw $panic_string, %si
-	call putstr
+	call message
 	cli
 	hlt
 
 drive_error:
 	movw $drive_error_string, %si
-	call putstr
+	call message
 	cli
 	hlt
 
 error:
 	/* print error message to screen */	
 	movw $error_string, %si
-	call putstr
+	call message
 	cli
 	hlt
 
 
-/* putstr:  write the string pointed to by %si
+/* message:  write the string pointed to by %si
  * WARNING: trashes %si, %ax, and %bx
  *
  * Use BIOS "int 10H Function 0Eh" to write character in teletype mode
@@ -166,7 +166,7 @@ error:
 	movw $0x0001, %bx
 	movb $0xe, %ah
 	int $0x10						/* display byte */
-putstr:
+message:
 	lodsb 
 	cmpb $0, %al
 	jne 1b							/* if not end of null, jump to display */

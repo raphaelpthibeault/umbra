@@ -1,6 +1,6 @@
 #include <asm.h>
 
-	.text 
+	.section .realmode
 	.code16
 
 	.globl start
@@ -42,10 +42,12 @@ start:
 	cld
 
 	call clear_screen
+	/*
 	pushw %si
 	movw $pm_mode_string, %si
 	call putstr_pm
 	popw %si
+	*/
 
 	/* TODO check presence of PCI, CPUID, MSRs 
 	 * I am just assuming they are there for now
@@ -181,11 +183,8 @@ realcseg:
 	ret
 
 panic:
-	cli
-	hlt
+	jmp panic
 
-	
-	.data
 notification_string: .asciz "Begin core ... "
 pm_mode_string: .asciz "We are now in protected mode... "
 

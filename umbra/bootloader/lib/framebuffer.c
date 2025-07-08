@@ -46,9 +46,6 @@ fb_init(size_t *_fb_count, uint16_t target_width, uint16_t target_height, uint16
 	if (vbe_setup(ret, target_width, target_height, target_bpp)) {
 		*_fb_count = 1;
 		ret->edid = get_edid_record();
-		//size_t mode_count;
-		//ret->mode_list = vbe_get_mode_list(&mode_count);
-		//ret->mode_count = mode_count;
 	} else {
 		*_fb_count = 0;
 		memmap_free(ret, sizeof(struct fb_info));

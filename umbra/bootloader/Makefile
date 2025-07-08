@@ -31,7 +31,7 @@ start.hdd: arch/$(ARCH)/start.o
 
 # stage2.hdd (core.hdd = start.hdd + stage2.hdd)
 stage2.hdd: $(STAGE2_OBJS)
-	$(CC) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/core.ld -o $@ $^
+	$(CC) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/core.ld -o $@ $^ #-Wl,-Map,umbra.map
 
 mkimage: host/mkimage.c
 	# use host compiler not cross-compiler

@@ -1,4 +1,4 @@
-	.text
+	.section .realmode
 	.extern except
 
 /* generate handlers for exceptions 0-31 */
@@ -31,7 +31,6 @@ irq\number:
 	.long irq\number
 .endm
 
-.section .data
 .globl isr_vector
 isr_vector:
 	.set i, 0

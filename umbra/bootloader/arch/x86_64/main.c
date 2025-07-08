@@ -8,7 +8,7 @@
 #include <common/boot_menu.h>
 
 noreturn void
-boot_main(uint8_t boot_drive)
+boot_main(uint8_t drive)
 {
 	disk_t *boot_disk;
 
@@ -24,7 +24,7 @@ boot_main(uint8_t boot_drive)
 	set_idt();
 	disk_create_index();
 
-	boot_disk = disk_get_by_drive(boot_drive);
+	boot_disk = disk_get_by_drive(drive);
 	if (boot_disk == NULL) {
 		putstr("[Panic] Could not get boot disk!\n", COLOR_RED, COLOR_BLK);
 		while (1);

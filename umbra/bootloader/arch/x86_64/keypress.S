@@ -1,4 +1,5 @@
-.section .realmode
+	.section .realmode
+	.code16
 
 	/* PIT interrupt hook */
 int_08_ticks_counter:
@@ -13,8 +14,6 @@ key_ascii:
 key_scan:
 	.long 0
 
-	.text
-	.code16
 int_08_isr:
 	pushf
 	incl int_08_ticks_counter

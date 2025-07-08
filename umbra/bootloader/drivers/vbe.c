@@ -199,6 +199,7 @@ vbe_get_mode_info(struct vbe_mode_info_block *mode_info, uint32_t mode)
 	}
 
 	memcpy(mode_info, mi_tmp, sizeof(*mode_info));
+
 	return 1;	
 }
 
@@ -258,7 +259,7 @@ vbe_set_video_mode(struct vbe_mode_info_block *mode_info, uint32_t mode)
 }
 
 static void *
-real2pm (uint32_t ptr)
+real2pm(uint32_t ptr)
 {
 	return (void *) ((((unsigned long) ptr & 0xFFFF0000) >> 12UL)
                    + ((unsigned long) ptr & 0x0000FFFF));
@@ -313,8 +314,9 @@ vbe_setup(struct fb_info *ret, uint16_t target_width, uint16_t target_height, ui
 
 	serial_print("VBE: Setting up...\n");
 
-	struct vbe_mode_info_block vbe_mode_info;
-	struct vbe_mode_info_block best_vbe_mode_info;
+	/* these are quite large, put in bss */
+	static struct vbe_mode_info_block vbe_mode_info;
+	static struct vbe_mode_info_block best_vbe_mode_info;
 	uint32_t best_vbe_mode = 0;
 	uint16_t *p;
 	int preferred_mode = 0;
@@ -398,23 +400,13 @@ vbe_setup(struct fb_info *ret, uint16_t target_width, uint16_t target_height, ui
 	}
 
 	serial_print("VBE: Best vbe mode: 0x%x, ", best_vbe_mode);
-	serial_print("%dx", best_vbe_mode_info.res_x);
+	serial_print("resolution: %dx", best_vbe_mode_info.res_x);
 	serial_print("%dx", best_vbe_mode_info.res_y);
 	serial_print("%d\n", best_vbe_mode_info.bpp);
 
-	/* try to set best VBE mode */
-	if (best_vbe_mode != 0) {
-		// DOESN'T WORK?
-		if (vbe_set_video_mode(0, best_vbe_mode) != 0) {
-			serial_print("VBE: ERROR: Could not set video mode 0x%x!\n", best_vbe_mode);
-			return false;
-		}
-	} else {
-		serial_print("VBE: ERROR: Could not find a matching video mode!\n");
-		return false;
-	}
-
-	serial_print("VBE: Set the video mode for 0x%x\n", best_vbe_mode);
+	serial_print("--- VBE Mode Info Dump for mode 0x%x ---\n", best_vbe_mode);
+	serial_print_buffer_hex(&best_vbe_mode_info, sizeof(best_vbe_mode_info));
+	serial_print("--- End VBE Dump ---\n");
 
 	ret->memory_model = best_vbe_mode_info.memory_model;
 	ret->framebuffer_addr = best_vbe_mode_info.framebuffer_addr;
@@ -422,22 +414,23 @@ vbe_setup(struct fb_info *ret, uint16_t target_width, uint16_t target_height, ui
 	ret->framebuffer_height = best_vbe_mode_info.res_y;
 	ret->framebuffer_bpp = best_vbe_mode_info.bpp;
 
-	if (controller_info.version_hi < 3) {
-		ret->framebuffer_pitch = best_vbe_mode_info.bytes_per_scanline;
-		ret->red_mask_size = best_vbe_mode_info.red_mask_size;
-		ret->red_mask_shift = best_vbe_mode_info.red_mask_shift;
-		ret->green_mask_size = best_vbe_mode_info.green_mask_size;
-		ret->green_mask_shift = best_vbe_mode_info.green_mask_shift;
-		ret->blue_mask_size = best_vbe_mode_info.blue_mask_size;
-		ret->blue_mask_shift = best_vbe_mode_info.blue_mask_shift;
+	ret->framebuffer_pitch = best_vbe_mode_info.bytes_per_scanline;
+	ret->red_mask_size = best_vbe_mode_info.red_mask_size;
+	ret->red_mask_shift = best_vbe_mode_info.red_mask_shift;
+	ret->green_mask_size = best_vbe_mode_info.green_mask_size;
+	ret->green_mask_shift = best_vbe_mode_info.green_mask_shift;
+	ret->blue_mask_size = best_vbe_mode_info.blue_mask_size;
+	ret->blue_mask_shift = best_vbe_mode_info.blue_mask_shift;
+
+	/* try to set best VBE mode */
+	if (best_vbe_mode != 0) {
+		if (vbe_set_video_mode(0, best_vbe_mode) != 0) {
+			serial_print("VBE: ERROR: Could not set video mode 0x%x!\n", best_vbe_mode);
+			return false;
+		}
 	} else {
-		ret->framebuffer_pitch = best_vbe_mode_info.lin_bytes_per_scanline;
-		ret->red_mask_size = best_vbe_mode_info.lin_red_mask_size;
-		ret->red_mask_shift = best_vbe_mode_info.lin_red_mask_shift;
-		ret->green_mask_size = best_vbe_mode_info.lin_green_mask_size;
-		ret->green_mask_shift = best_vbe_mode_info.lin_green_mask_shift;
-		ret->blue_mask_size = best_vbe_mode_info.lin_blue_mask_size;
-		ret->blue_mask_shift = best_vbe_mode_info.lin_blue_mask_shift;
+		serial_print("VBE: ERROR: Could not find a matching video mode!\n");
+		return false;
 	}
 
 	fb_clear(ret);

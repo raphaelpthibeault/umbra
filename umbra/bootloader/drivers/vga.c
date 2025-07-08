@@ -6,8 +6,7 @@
 
 volatile vga_char_t *TEXT_AREA = (vga_char_t*) VGA_START;
 
-
-uint8_t 
+static uint8_t 
 vga_color(const uint8_t fg, const uint8_t bg) 
 {
 	// place background colour in the higher 4 bits and mask the foreground bits
@@ -29,7 +28,7 @@ clearwin(const uint8_t fg, const uint8_t bg)
 		TEXT_AREA[i] = clear_char;
 }
 
-void 
+static void 
 putchar(const char c, const uint8_t fg, const uint8_t bg) 
 {
 	uint16_t pos = get_cursor_pos();
@@ -192,7 +191,7 @@ scroll_line()
 	set_cursor_pos(0, VGA_HEIGHT-1);
 }
 
-uint8_t hex_lookup[16] = {
+static uint8_t hex_lookup[16] = {
 	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
 };
 

@@ -1,7 +1,7 @@
 /* Collection of util assembly functions for core / stage2
  **/
 
-	.text
+	.section .realmode
 	.code16 /* 16-bit functions */
 
 /* putstr_bios:  write the string pointed to by %si
@@ -80,9 +80,9 @@ puthex_loop_end:
 	ret
 
 
+	.text
 	.code32 /* 32-bit functions */
 /* no longer have BIOS-utilities, use VGA memory for printing */
-	.text
 	.globl clear_screen
 clear_screen:
 	pushal
@@ -113,10 +113,14 @@ clear_screen_loop_end:
 	ret
 	
 /* %esi: string */
-	.globl putstr_pm
+	.local putstr_pm
 putstr_pm:
 	pushal
 	movl $0x000B8000, %edx
+
+	/* DEBUG: THESE 2 LINES HERE */
+	#movl $'X', %edx
+	#addl $2, %edx		/* move to next cell in VGA memory ; note each cell is 2 bytes */
 
 putsrpm_loop:
 	cmpb $0, (%esi) 
