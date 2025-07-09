@@ -2,6 +2,7 @@
 #define __MISC_H__
 
 #include <types.h>
+#include <lib/arg.h>
 
 #define DIV_ROUNDUP(a, b) ({ \
     __auto_type DIV_ROUNDUP_a = (a); \
@@ -23,5 +24,7 @@ char *strcpy(char *dest, const char *src);
 char *strchr(const char *s, int c);
 int digit_to_int(char c);
 uint64_t strtoui(const char *s, const char **end, int base);
+void byte_to_hex_string(uint8_t byte, char *out);
+size_t vprint(char *dst, const char *fmt, va_list args);
 
 #endif // !__MISC_H__

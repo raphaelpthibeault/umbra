@@ -191,18 +191,6 @@ scroll_line()
 	set_cursor_pos(0, VGA_HEIGHT-1);
 }
 
-static uint8_t hex_lookup[16] = {
-	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
-};
-
-static void
-byte_to_hex_string(uint8_t byte, char *out)
-{
-	out[0] = hex_lookup[(byte>>4)&0xf];
-	out[1] = hex_lookup[byte&0xf];
-	out[2] = '\0';
-}
-
 void 
 print_buffer_hex(void *buf, size_t size, const uint8_t fg, const uint8_t bg)
 {

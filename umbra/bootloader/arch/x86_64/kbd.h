@@ -16,6 +16,7 @@
 #define GETCHAR_ESCAPE       (-20)
 #define GETCHAR_RCTRL 0x4
 #define GETCHAR_LCTRL GETCHAR_RCTRL
+#define GETCHAR_ENTER (10)
 
 int getchar(void);
 

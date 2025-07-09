@@ -5,6 +5,7 @@
 #include <lib/framebuffer.h>
 #include <lib/misc.h>
 #include <mm/pmm.h>
+#include <lib/arg.h>
 
 /* Builtin font originally taken from:
  * https://github.com/viler-int10h/vga-text-mode-fonts/raw/master/FONTS/PC-OTHER/TOSH-SAT.F16
@@ -371,9 +372,19 @@ static void
 plot_char(struct fb_char *c, size_t x, size_t y)
 {
 	if (x >= ctx->cols || y >= ctx->rows) return;
-
-	uint32_t bg = ctx->bg_color;
-	uint32_t fg = ctx->fg_color;
+	
+	/* don't fuck with c's colors (if it has colors) */
+	uint32_t bg, fg;
+	if (c->bg == 0 && c->fg == 0)
+	{
+		bg = ctx->bg_color;
+		fg = ctx->fg_color;
+	}
+	else 
+	{
+		bg = c->bg;
+		fg = c->fg;
+	}
 
 	x = ctx->offset_x + x * ctx->glyph_width;
 	y = ctx->offset_y + y * ctx->glyph_height;
@@ -440,7 +451,8 @@ push_to_queue(struct fb_char *c, size_t x, size_t y)
 	size_t i = y * ctx->cols + x;
 	struct fb_queue_item *q = ctx->map[i];
 
-	if (q == NULL) {
+	if (q == NULL) 
+	{
 		if (fb_char_equals(&ctx->grid[i], c))
 				return;
 		
@@ -456,9 +468,15 @@ push_to_queue(struct fb_char *c, size_t x, size_t y)
 static void
 double_buffer_flush(void)
 {
-	if (ctx->cursor_enabled) 
-		draw_cursor();
-	
+	/* redraw the char that was covered by old cursor */
+	if (ctx->cursor_enabled)
+	{
+		if (ctx->old_cursor_x < ctx->cols && ctx->old_cursor_y < ctx->rows)
+		{
+			plot_char(&ctx->grid[ctx->old_cursor_x + ctx->old_cursor_y * ctx->cols], ctx->old_cursor_x, ctx->old_cursor_y);
+		}
+	}
+
 	for (size_t i = 0; i < ctx->queue_i; ++i)
 	{
 		struct fb_queue_item *q = &ctx->queue[i];
@@ -471,17 +489,12 @@ double_buffer_flush(void)
 		ctx->map[offset] = NULL;
 	}
 
-	if ((ctx->old_cursor_x != ctx->cursor_x || ctx->old_cursor_y != ctx->cursor_y) || ctx->cursor_enabled == false)
-	{
-		if (ctx->old_cursor_x < ctx->cols && ctx->old_cursor_y < ctx->rows)
-		{
-			plot_char(&ctx->grid[ctx->old_cursor_x + ctx->old_cursor_y * ctx->cols], ctx->old_cursor_x, ctx->old_cursor_y);
-		}
-	}
-
+	if (ctx->cursor_enabled) 
+		draw_cursor();
+	
+	ctx->queue_i = 0;
 	ctx->old_cursor_x = ctx->cursor_x;
 	ctx->old_cursor_y = ctx->cursor_y;
-	ctx->queue_i = 0;
 }
 
 static void 
@@ -543,8 +556,8 @@ scroll(void)
 	}
 }
 
-static void
-set_cursor_pos(size_t x, size_t y)
+void
+terminal_set_cursor_pos(size_t x, size_t y)
 {
 	if (x >= ctx->cols)
 	{
@@ -573,8 +586,8 @@ set_cursor_pos(size_t x, size_t y)
 	ctx->cursor_y = y;
 }
 
-static void
-get_cursor_pos(size_t *x, size_t *y)
+void
+terminal_get_cursor_pos(size_t *x, size_t *y)
 {
 	*x = ctx->cursor_x >= ctx->cols ? ctx->cols - 1 : ctx->cursor_x;
 	*y = ctx->cursor_y >= ctx->rows ? ctx->rows - 1 : ctx->cursor_y;
@@ -609,34 +622,34 @@ putchar(uint8_t c)
 	/* assume tabsize = 4 */
 	size_t tabsize = 4;
 	size_t x, y;
-	get_cursor_pos(&x, &y);
+	terminal_get_cursor_pos(&x, &y);
 
 	switch (c)
 	{
 		case '\t':
 			if ((x / tabsize + 1) >= ctx->cols) 
 			{
-				set_cursor_pos(ctx->cols - 1, y);
+				terminal_set_cursor_pos(ctx->cols - 1, y);
 				return;
 			}
-			set_cursor_pos((x / tabsize + 1) * tabsize, y);
+			terminal_set_cursor_pos((x / tabsize + 1) * tabsize, y);
 			return;
 		case '\n':
 			if (y == ctx->scroll_bottom_margin - 1)
 			{
 				scroll();
-				set_cursor_pos((ctx->oob_output & OOB_OUTPUT_ONLCR) ? 0 : x, y);
+				terminal_set_cursor_pos((ctx->oob_output & OOB_OUTPUT_ONLCR) ? 0 : x, y);
 			}
 			else
 			{
-				set_cursor_pos((ctx->oob_output & OOB_OUTPUT_ONLCR) ? 0 : x, y + 1);
+				terminal_set_cursor_pos((ctx->oob_output & OOB_OUTPUT_ONLCR) ? 0 : x, y + 1);
 			}
 			return;
 		case '\b':
-			set_cursor_pos(x - 1, y);
+			terminal_set_cursor_pos(x - 1, y);
 			return;
 		case '\r':
-			set_cursor_pos(0, y);
+			terminal_set_cursor_pos(0, y);
 			return;
 	}
 
@@ -652,6 +665,33 @@ terminal_write(const char *msg)
 	}
 
 	double_buffer_flush();
+}
+
+int
+terminal_print(const char *fmt, ...)
+{
+	va_list args;
+	int ret;
+	char buf[256], *s = (char *)&buf;
+
+	va_start(args, fmt);
+	ret = vprint(buf, fmt, args);
+	va_end(args);
+
+	while (*s != '\0') 
+	{
+		putchar(*s++);  
+	}
+
+	double_buffer_flush();
+	return ret;
+}
+
+void
+terminal_set_color(uint32_t fg, uint32_t bg)
+{
+	ctx->fg_color = convert_color(fg);
+	ctx->bg_color = convert_color(bg);
 }
 
 bool
@@ -878,3 +918,36 @@ fail:
 	return false;
 }
 
+void
+terminal_clear(void)
+{
+	serial_print("Terminal: clear\n");	
+
+	terminal_set_cursor_pos(0, 0);
+
+	struct fb_char space;
+	space.c = ' ';
+	space.bg = ctx->bg_color;
+	space.fg = ctx->fg_color;
+	for (size_t y = 0; y < ctx->rows; ++y)
+	{
+		for (size_t x = 0; x < ctx->cols; ++x)
+		{
+			plot_char(&space, x, y);	
+		}
+	}
+
+	double_buffer_flush();
+}
+
+void
+terminal_disable_cursor(void)
+{
+	ctx->cursor_enabled = false;
+}
+
+void
+terminal_enable_cursor(void)
+{
+	ctx->cursor_enabled = true;
+}

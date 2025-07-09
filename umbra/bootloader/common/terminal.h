@@ -5,6 +5,7 @@
 
 #include <types.h>
 #include <lib/video.h>
+#include <lib/arg.h>
 
 /* determines whether or not a newline is carriage return */
 #define OOB_OUTPUT_ONLCR (1 << 4)
@@ -67,8 +68,8 @@ struct terminal_ctx {
 	size_t glyph_width;
 	size_t glyph_height;
 
-	uint32_t bg_color;
-	uint32_t fg_color;
+	uint32_t bg_color, old_bg_color;
+	uint32_t fg_color, old_fg_color;
 
 	uint8_t red_mask_size;
 	uint8_t red_mask_shift;
@@ -88,5 +89,12 @@ struct terminal_ctx {
 
 bool terminal_init(void);
 void terminal_write(const char *msg);
+int terminal_print(const char *fmt, ...);
+void terminal_get_cursor_pos(size_t *x, size_t *y);
+void terminal_set_cursor_pos(size_t x, size_t y);
+void terminal_set_color(uint32_t fg, uint32_t bg);
+void terminal_clear(void);
+void terminal_disable_cursor(void);
+void terminal_enable_cursor(void);
 
 #endif // !__TERMINAL_H__

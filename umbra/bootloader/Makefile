@@ -11,22 +11,22 @@ STAGE2_C_SOURCES= arch/$(ARCH)/main.c drivers/vga.c arch/$(ARCH)/e820.c mm/pmm.c
  arch/$(ARCH)/exceptions.c drivers/disk.c lib/partition.c lib/arithmetic64.c fs/fat32.c fs/file.c common/boot_menu.c \
  common/terminal.c drivers/vbe.c lib/framebuffer.c drivers/edid.c drivers/serial.c arch/$(ARCH)/kbd.c
 
-STAGE2_ASM_OBJS := $(STAGE2_ASM_SOURCES:.S=.o)
-STAGE2_C_OBJS := $(STAGE2_C_SOURCES:.c=.o)
+STAGE2_ASM_OBJS := $(STAGE2_ASM_SOURCES:.S=.S.o)
+STAGE2_C_OBJS := $(STAGE2_C_SOURCES:.c=.c.o)
 STAGE2_OBJS := $(STAGE2_ASM_OBJS) $(STAGE2_C_OBJS)
 
-%.o: %.S
+%.S.o: %.S
 	$(CC) $(BOOT_ASFLAGS) -o $@ $^
 
-%.o: %.c
+%.c.o: %.c
 	$(CC) $(BOOT_CFLAGS) -o $@ $^
 
 
-boot.hdd: arch/$(ARCH)/boot.o
+boot.hdd: arch/$(ARCH)/boot.S.o
 	$(CC) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/boot.ld -o $@ $^
 
 # start.hdd (the first sector of 512 bytes of the core.hdd, must be linked sepatately)
-start.hdd: arch/$(ARCH)/start.o
+start.hdd: arch/$(ARCH)/start.S.o
 	$(CC) $(BOOT_LDFLAGS) -N -T arch/$(ARCH)/start.ld -o $@ $^
 
 # stage2.hdd (core.hdd = start.hdd + stage2.hdd)
