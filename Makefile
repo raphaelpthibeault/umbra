@@ -1,7 +1,7 @@
 all:
 	@echo "make all is not currently supported."
 
-build: clean 
+build: clean umbra.cfg # kernel
 	make -C umbra/bootloader bootloader
 	# make empty image
 	dd if=/dev/zero bs=1M count=0 seek=64 of=umbra.hdd
@@ -12,9 +12,10 @@ build: clean
 	# format raw image past bootloader (of size 1M) as FAT32
 	mformat -i umbra.hdd@@1M
 	# add relevant directories 
-	mmd -i umbra.hdd@@1M ::/boot # ::/boot/bootloader
-	# copy files to relevant directories (TODO: kernel, config file)
-	# mcopy -i umbra.hdd@@1M umbra/bootloader/stage3.sys ::/boot/bootloader
+	mmd -i umbra.hdd@@1M ::/boot ::/boot/bootloader
+	# copy files to relevant directories
+	mcopy -i umbra.hdd@@1M umbra.cfg ::/boot/bootloader
+	#mcopy -i umbra.hdd@@1M kernel ::/boot
 
 run: build
 	qemu-system-x86_64 -drive format=raw,file=umbra.hdd -no-reboot -M q35 -m 2G -serial mon:stdio

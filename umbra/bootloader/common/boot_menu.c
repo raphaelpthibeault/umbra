@@ -1,16 +1,14 @@
 #include "boot_menu.h"
 #include <types.h>
 #include <drivers/vga.h>
-#include <common/terminal.h>
 #include <drivers/serial.h>
-
+#include <drivers/disk.h>
+#include <common/terminal.h>
+#include <common/config.h>
 #include <arch/x86_64/kbd.h>
 
-
-#include <drivers/vbe.h>
-#include <lib/framebuffer.h>
 noreturn void
-_boot_menu(void)
+_boot_menu(uint8_t drive)
 {
 	/* VGA turn off */
 	clearwin(COLOR_WHT, COLOR_BLK);
@@ -23,13 +21,33 @@ _boot_menu(void)
 	}
 
 	serial_print("Terminal: Initialized\n");
-	terminal_write("***** Bootloader Terminal *****\n\n\n");
-	terminal_write("Select a kernel to booot:\n\n");
+	terminal_print("***** Bootloader Terminal *****\n\n\n");
+	terminal_print("Select a kernel to booot:\n\n");
 
 	/* TODO: flush IRQs */
 	/* TODO: init IO APICS */
 
-	/* TODO: print fs tree */
+	disk_t *boot_disk;
+	boot_disk = disk_get_by_drive(drive);
+	if (boot_disk == NULL) {
+		serial_print("[PANIC] Could not get boot disk!\n");
+		while (1);
+	}
+
+	if (config_init_disk(boot_disk) < 0)
+	{
+		serial_print("[PANIC] Could not init config\n");
+		while (1);
+	}
+	serial_print("Config: Initialized from disk\n");
+
+	if (menu_tree == NULL)
+	{
+		serial_print("[PANIC] the fuck? menu tree is null\n");
+		while (1);
+	}
+
+	/* TODO: print menu tree */
 
 	size_t selected_entry = 0;
 	size_t max_entries = 3;
@@ -40,11 +58,9 @@ _boot_menu(void)
 		"option 2",
 	};
 
-	size_t x, y, top, bottom;
+	size_t x, y, top;
 	terminal_get_cursor_pos(&x, &y);
 	top = y;	
-	bottom = y + max_entries - 1;
-	serial_print("top: %d, bottom: %d\n", top, bottom); 
 
 	/* newline sets cursor pos to next line (which then colors that pos), so avoid \n */
 	for (size_t i = 0; i < max_entries; ++i)

@@ -30,7 +30,7 @@ boot_main(uint8_t drive)
 		while (1);
 	}
 	
-	_boot_menu();
+	_boot_menu(drive);
 
 	__builtin_unreachable();
 }
