@@ -10,17 +10,6 @@
 /* determines whether or not a newline is carriage return */
 #define OOB_OUTPUT_ONLCR (1 << 4)
 
-typedef struct {
-	const char *name;
-	const char *path;
-} terminal_menu_entry_t;
-
-typedef struct {
-	int size;
-	terminal_menu_entry_t *entry_list;
-} terminal_menu_t;
-
-
 struct fb_char {
 	uint32_t c;
 	uint32_t fg;
@@ -96,5 +85,7 @@ void terminal_set_color(uint32_t fg, uint32_t bg);
 void terminal_clear(void);
 void terminal_disable_cursor(void);
 void terminal_enable_cursor(void);
+
+extern struct terminal_ctx *term_ctx;
 
 #endif // !__TERMINAL_H__

@@ -6,6 +6,83 @@
 #include <common/terminal.h>
 #include <common/config.h>
 #include <arch/x86_64/kbd.h>
+#include <lib/misc.h>
+
+static size_t
+print_tree(struct menu_entry *entry, size_t offset, size_t window, size_t level, size_t base_index, size_t selected_entry, struct menu_entry **selected_menu_entry)
+{	
+	size_t max_entries = 0;
+
+	for (;;)
+	{
+		size_t curr_len = 0;
+		if (entry == NULL)
+		{
+			break;
+		}
+
+		if ((base_index + max_entries < offset) || (base_index + max_entries >= offset + window))
+		{
+			goto skip_line;
+		}
+
+		if (level)
+		{
+			for (size_t i = level - 1; i > 0; --i)
+			{
+				struct menu_entry *parent = entry;
+				for (size_t j = 0; j < i; ++j)
+					parent = parent->parent;
+
+				if (parent->next == NULL)
+					terminal_print("  ");
+				else
+					terminal_print(" │");
+
+				curr_len += 2;
+			}
+		}
+
+		if (entry->sub)
+		{
+			terminal_print(entry->expanded ? "[-]" : "[+]");
+		}
+		else if (level)
+		{
+			terminal_print("──►");	
+		}
+		else
+		{
+			terminal_print("   ");
+		}
+		curr_len += 3;
+
+
+		if (base_index + max_entries == selected_entry)
+		{
+			*selected_menu_entry = entry;		
+			terminal_set_color(0x00000000, 0x00aaaaaa);
+			terminal_print(" %s \n", entry->name);
+			terminal_set_color(0x00aaaaaa, 0x00000000);
+		} 
+		else
+		{
+			terminal_print(" %s \n", entry->name);
+		}
+
+		curr_len += 1 + strlen(entry->name) + 1;
+
+skip_line:
+		if (entry->sub && entry->expanded)
+		{
+			max_entries += print_tree(entry->sub, offset, window, level + 1, base_index + max_entries + 1, selected_entry, selected_menu_entry);
+		}
+		++max_entries;
+		entry = entry->next;
+	}
+
+	return max_entries;
+}
 
 noreturn void
 _boot_menu(uint8_t drive)
@@ -19,6 +96,7 @@ _boot_menu(uint8_t drive)
 		serial_print("[PANIC] error initializating terminal\n");
 		while (1);
 	}
+	terminal_disable_cursor(); /* before printing anything to screen */
 
 	serial_print("Terminal: Initialized\n");
 	terminal_print("***** Bootloader Terminal *****\n\n\n");
@@ -47,66 +125,70 @@ _boot_menu(uint8_t drive)
 		while (1);
 	}
 
-	/* TODO: print menu tree */
+	size_t x, top;
+	terminal_get_cursor_pos(&x, &top);
 
 	size_t selected_entry = 0;
-	size_t max_entries = 3;
-	char *entries[] = 
-	{
-		"option 0",
-		"option 1",
-		"option 2",
-	};
+	struct menu_entry *selected_menu_entry;
 
-	size_t x, y, top;
-	terminal_get_cursor_pos(&x, &y);
-	top = y;	
-
-	/* newline sets cursor pos to next line (which then colors that pos), so avoid \n */
-	for (size_t i = 0; i < max_entries; ++i)
-	{
-		terminal_set_cursor_pos(0, y + i);
-		terminal_print("%s", entries[i]);
-	}
+	//print_tree(struct menu_tree *entry, size_t offset, size_t window, size_t level, size_t base_index, size_t selected_entry, struct menu_tree **selected_menu_entry)
+	size_t max_entries = print_tree(menu_tree, 0, term_ctx->rows - 8, 0, 0, selected_entry, &selected_menu_entry);
 
 	char c;
-	for (;;) 
+	for (;;)
 	{
-		terminal_set_cursor_pos(0, top + selected_entry);
-		terminal_set_color(0x00000000, 0x00aaaaaa);
-		terminal_print("%s", entries[selected_entry]);
+		// fuck it reprint the entire thing, no cleverness about it
+		terminal_set_cursor_pos(0, top);
+	  print_tree(menu_tree, 0, term_ctx->rows - 8, 0, 0, selected_entry, &selected_menu_entry);
+
 		c = getchar(); /* blocking call */
 		switch (c)
 		{
 			case GETCHAR_CURSOR_UP:
-				terminal_set_cursor_pos(0, top + selected_entry);
-				terminal_set_color(0x00aaaaaa, 0x00000000);
-				terminal_print("%s", entries[selected_entry]);
 				if (selected_entry == 0)
+				{
 					selected_entry = max_entries - 1;
+				}
 				else
+				{
 					--selected_entry;
+				}
 				break;
 			case GETCHAR_CURSOR_DOWN:
-				terminal_set_cursor_pos(0, top + selected_entry);
-				terminal_set_color(0x00aaaaaa, 0x00000000);
-				terminal_print("%s", entries[selected_entry]);
 				if (selected_entry == max_entries - 1)
+				{
 					selected_entry = 0;
+				}
 				else
+				{
 					++selected_entry;
+				}
 				break;
 			case GETCHAR_ENTER:
-				serial_print("Boot Menu: Selected '%s'\n", entries[selected_entry]);
+				serial_print("Boot Menu: Selected '%s'\n", selected_menu_entry->name);
 				goto load_kernel;
 		}
 	}
 
-	/* TODO: load user's chosen kernel (umbra) */
 load_kernel:
-	terminal_disable_cursor();
 	terminal_set_color(0x00aaaaaa, 0x00000000);
 	terminal_clear();
+
+	terminal_set_cursor_pos(0, 0);
+	if (strcmp(selected_menu_entry->name, "REBOOT") == 0
+			|| strcmp(selected_menu_entry->name, "Reboot") == 0
+			|| strcmp(selected_menu_entry->name, "reboot") == 0)
+	{
+		/* TODO */
+		serial_print("Boot Menu: Rebooting...\n");
+		while (1);
+	}
+
+	terminal_print("Boot Menu: Selected '%s'\n", selected_menu_entry->name); // bug: why is there a dead pixel?
+	terminal_print("'%s'\n", selected_menu_entry->body);
+
+	/* TODO: load user's chosen kernel (umbra) */
+
 
 	while(1);	
 }

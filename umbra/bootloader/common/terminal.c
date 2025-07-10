@@ -355,30 +355,30 @@ static const uint8_t builtin_font[] = {
   0x00, 0x00, 0x00, 0x00
 };
 
-struct terminal_ctx *ctx = NULL;
+struct terminal_ctx *term_ctx = NULL;
 
 static inline __attribute__((always_inline)) uint32_t 
 convert_color(uint32_t color)
 {
 	/* assuming 24-bit RGB, no A */
-	uint32_t r = ((color >> 16) & 0xff) >> (8 - ctx->red_mask_size);
-	uint32_t g = ((color >> 8) & 0xff) >> (8 - ctx->green_mask_size);
-	uint32_t b = (color & 0xff) >> (8 - ctx->blue_mask_size);
+	uint32_t r = ((color >> 16) & 0xff) >> (8 - term_ctx->red_mask_size);
+	uint32_t g = ((color >> 8) & 0xff) >> (8 - term_ctx->green_mask_size);
+	uint32_t b = (color & 0xff) >> (8 - term_ctx->blue_mask_size);
 
-	return (r << ctx->red_mask_shift) | (g << ctx->green_mask_shift) | (b << ctx->blue_mask_shift);
+	return (r << term_ctx->red_mask_shift) | (g << term_ctx->green_mask_shift) | (b << term_ctx->blue_mask_shift);
 }
 
 static void
 plot_char(struct fb_char *c, size_t x, size_t y)
 {
-	if (x >= ctx->cols || y >= ctx->rows) return;
+	if (x >= term_ctx->cols || y >= term_ctx->rows) return;
 	
 	/* don't fuck with c's colors (if it has colors) */
 	uint32_t bg, fg;
 	if (c->bg == 0 && c->fg == 0)
 	{
-		bg = ctx->bg_color;
-		fg = ctx->fg_color;
+		bg = term_ctx->bg_color;
+		fg = term_ctx->fg_color;
 	}
 	else 
 	{
@@ -386,18 +386,18 @@ plot_char(struct fb_char *c, size_t x, size_t y)
 		fg = c->fg;
 	}
 
-	x = ctx->offset_x + x * ctx->glyph_width;
-	y = ctx->offset_y + y * ctx->glyph_height;
+	x = term_ctx->offset_x + x * term_ctx->glyph_width;
+	y = term_ctx->offset_y + y * term_ctx->glyph_height;
 	
-	bool *glyph = &ctx->font_bool[c->c * ctx->font_height * ctx->font_width];
+	bool *glyph = &term_ctx->font_bool[c->c * term_ctx->font_height * term_ctx->font_width];
 	/* let font coords be (fx,fy), glyph coords (gx, gy) */
-	for (size_t gy = 0; gy < ctx->glyph_height; ++gy) 
+	for (size_t gy = 0; gy < term_ctx->glyph_height; ++gy) 
 	{
-		volatile uint32_t *fb_line = ctx->fb + x + (y + gy) * (ctx->pitch / 4);
+		volatile uint32_t *fb_line = term_ctx->fb + x + (y + gy) * (term_ctx->pitch / 4);
 
-		bool *glyph_ptr = glyph + (gy * ctx->font_width);
+		bool *glyph_ptr = glyph + (gy * term_ctx->font_width);
 
-		for (size_t fx = 0; fx < ctx->font_width; ++fx)
+		for (size_t fx = 0; fx < term_ctx->font_width; ++fx)
 		{
 			fb_line[fx] = *(glyph_ptr++) ? fg : bg;
 		}
@@ -407,30 +407,30 @@ plot_char(struct fb_char *c, size_t x, size_t y)
 static void
 draw_cursor(void)
 {
-	if (ctx->cursor_x >= ctx->cols || ctx->cursor_y >= ctx->rows) return;
+	if (term_ctx->cursor_x >= term_ctx->cols || term_ctx->cursor_y >= term_ctx->rows) return;
 
-	size_t i = ctx->cursor_x + ctx->cursor_y * ctx->cols;
+	size_t i = term_ctx->cursor_x + term_ctx->cursor_y * term_ctx->cols;
 
 	struct fb_char c;
-	struct fb_queue_item *q = ctx->map[i];
+	struct fb_queue_item *q = term_ctx->map[i];
 	if (q != NULL) 
 	{
 		c = q->c;
 	} 
 	else
 	{
-		c = ctx->grid[i];
+		c = term_ctx->grid[i];
 	}
 
 	uint32_t tmp = c.fg;
 	c.fg = c.bg;
 	c.bg = tmp;
 
-	plot_char(&c, ctx->cursor_x, ctx->cursor_y);
+	plot_char(&c, term_ctx->cursor_x, term_ctx->cursor_y);
 	if (q != NULL)
 	{
-		ctx->grid[i] = q->c;
-		ctx->map[i] = NULL;
+		term_ctx->grid[i] = q->c;
+		term_ctx->map[i] = NULL;
 	}
 }
 
@@ -446,20 +446,20 @@ fb_char_equals(struct fb_char *a, struct fb_char *b)
 static void
 push_to_queue(struct fb_char *c, size_t x, size_t y)
 {
-	if (x >= ctx->cols || y >= ctx->rows) return;
+	if (x >= term_ctx->cols || y >= term_ctx->rows) return;
 
-	size_t i = y * ctx->cols + x;
-	struct fb_queue_item *q = ctx->map[i];
+	size_t i = y * term_ctx->cols + x;
+	struct fb_queue_item *q = term_ctx->map[i];
 
 	if (q == NULL) 
 	{
-		if (fb_char_equals(&ctx->grid[i], c))
+		if (fb_char_equals(&term_ctx->grid[i], c))
 				return;
 		
-		q = &ctx->queue[ctx->queue_i++];
+		q = &term_ctx->queue[term_ctx->queue_i++];
 		q->x = x;
 		q->y = y;
-		ctx->map[i] = q;
+		term_ctx->map[i] = q;
 	}
 
 	q->c = *c;
@@ -469,70 +469,70 @@ static void
 double_buffer_flush(void)
 {
 	/* redraw the char that was covered by old cursor */
-	if (ctx->cursor_enabled)
+	if (term_ctx->cursor_enabled)
 	{
-		if (ctx->old_cursor_x < ctx->cols && ctx->old_cursor_y < ctx->rows)
+		if (term_ctx->old_cursor_x < term_ctx->cols && term_ctx->old_cursor_y < term_ctx->rows)
 		{
-			plot_char(&ctx->grid[ctx->old_cursor_x + ctx->old_cursor_y * ctx->cols], ctx->old_cursor_x, ctx->old_cursor_y);
+			plot_char(&term_ctx->grid[term_ctx->old_cursor_x + term_ctx->old_cursor_y * term_ctx->cols], term_ctx->old_cursor_x, term_ctx->old_cursor_y);
 		}
 	}
 
-	for (size_t i = 0; i < ctx->queue_i; ++i)
+	for (size_t i = 0; i < term_ctx->queue_i; ++i)
 	{
-		struct fb_queue_item *q = &ctx->queue[i];
-		size_t offset = q->y * ctx->cols + q->x;
-		if (ctx->map[offset] == NULL)
+		struct fb_queue_item *q = &term_ctx->queue[i];
+		size_t offset = q->y * term_ctx->cols + q->x;
+		if (term_ctx->map[offset] == NULL)
 			continue;
 
 		plot_char(&q->c, q->x, q->y);
-		ctx->grid[offset] = q->c;
-		ctx->map[offset] = NULL;
+		term_ctx->grid[offset] = q->c;
+		term_ctx->map[offset] = NULL;
 	}
 
-	if (ctx->cursor_enabled) 
+	if (term_ctx->cursor_enabled) 
 		draw_cursor();
 	
-	ctx->queue_i = 0;
-	ctx->old_cursor_x = ctx->cursor_x;
-	ctx->old_cursor_y = ctx->cursor_y;
+	term_ctx->queue_i = 0;
+	term_ctx->old_cursor_x = term_ctx->cursor_x;
+	term_ctx->old_cursor_y = term_ctx->cursor_y;
 }
 
 static void 
 refresh(void) 
 {
-	if (ctx == NULL) return;
+	if (term_ctx == NULL) return;
 
 	serial_print("Terminal: Refreshing ...\n");
 	
-	uint32_t bg = ctx->bg_color;
+	uint32_t bg = term_ctx->bg_color;
 
-	for (size_t y = 0; y < ctx->height; ++y) 
+	for (size_t y = 0; y < term_ctx->height; ++y) 
 	{
-		for (size_t x = 0; x < ctx->width; ++x) 
+		for (size_t x = 0; x < term_ctx->width; ++x) 
 		{
-			ctx->fb[y * (ctx->pitch / ctx->bytes_per_pixel) + x] = bg;
+			term_ctx->fb[y * (term_ctx->pitch / term_ctx->bytes_per_pixel) + x] = bg;
 		}
 	}
 
-	for (size_t i = 0; i < ctx->rows * ctx->cols; ++i) 
+	for (size_t i = 0; i < term_ctx->rows * term_ctx->cols; ++i) 
 	{
-		size_t x = i % ctx->cols;
-		size_t y = i / ctx->cols;
+		size_t x = i % term_ctx->cols;
+		size_t y = i / term_ctx->cols;
 		
-		plot_char(&ctx->grid[i], x, y);
+		plot_char(&term_ctx->grid[i], x, y);
 	}
 
-	if (ctx->cursor_enabled) 
+	if (term_ctx->cursor_enabled) 
 		draw_cursor();
 }
 
 static void
 scroll(void)
 {
-	for (size_t i = (ctx->scroll_top_margin + 1) * ctx->cols; i < ctx->scroll_bottom_margin * ctx->cols; ++i) 
+	for (size_t i = (term_ctx->scroll_top_margin + 1) * term_ctx->cols; i < term_ctx->scroll_bottom_margin * term_ctx->cols; ++i) 
 	{
 		struct fb_char *c;
-		struct fb_queue_item *q = ctx->map[i];
+		struct fb_queue_item *q = term_ctx->map[i];
 
 		if (q != NULL) 
 		{
@@ -540,26 +540,26 @@ scroll(void)
 		}
 		else 
 		{
-			c = &ctx->grid[i];
+			c = &term_ctx->grid[i];
 		}
-		push_to_queue(c, (i - ctx->cols) % ctx->cols, (i - ctx->cols) / ctx->cols);
+		push_to_queue(c, (i - term_ctx->cols) % term_ctx->cols, (i - term_ctx->cols) / term_ctx->cols);
 	}
 
 	/* clear last row */
 	struct fb_char space;
 	space.c = ' ';
-	space.bg = ctx->bg_color;
-	space.fg = ctx->fg_color;
-	for (size_t i = 0; i < ctx->cols; ++i)
+	space.bg = term_ctx->bg_color;
+	space.fg = term_ctx->fg_color;
+	for (size_t i = 0; i < term_ctx->cols; ++i)
 	{
-		push_to_queue(&space, i, ctx->scroll_bottom_margin - 1);	
+		push_to_queue(&space, i, term_ctx->scroll_bottom_margin - 1);	
 	}
 }
 
 void
 terminal_set_cursor_pos(size_t x, size_t y)
 {
-	if (x >= ctx->cols)
+	if (x >= term_ctx->cols)
 	{
 		if ((int)x < 0)
 		{
@@ -567,10 +567,10 @@ terminal_set_cursor_pos(size_t x, size_t y)
 		}
 		else
 		{
-			x = ctx->cols - 1;
+			x = term_ctx->cols - 1;
 		}
 	}
-	if (y >= ctx->rows)
+	if (y >= term_ctx->rows)
 	{
 		if ((int)y < 0)
 		{
@@ -578,42 +578,42 @@ terminal_set_cursor_pos(size_t x, size_t y)
 		}
 		else
 		{
-			y = ctx->rows - 1;
+			y = term_ctx->rows - 1;
 		}
 	}
 
-	ctx->cursor_x = x;
-	ctx->cursor_y = y;
+	term_ctx->cursor_x = x;
+	term_ctx->cursor_y = y;
 }
 
 void
 terminal_get_cursor_pos(size_t *x, size_t *y)
 {
-	*x = ctx->cursor_x >= ctx->cols ? ctx->cols - 1 : ctx->cursor_x;
-	*y = ctx->cursor_y >= ctx->rows ? ctx->rows - 1 : ctx->cursor_y;
+	*x = term_ctx->cursor_x >= term_ctx->cols ? term_ctx->cols - 1 : term_ctx->cursor_x;
+	*y = term_ctx->cursor_y >= term_ctx->rows ? term_ctx->rows - 1 : term_ctx->cursor_y;
 }
 
 static void 
 putchar_raw(uint8_t c)
 {
-	if (ctx->cursor_x >= ctx->cols && (ctx->scroll_enabled || ctx->cursor_y < ctx->scroll_bottom_margin - 1)) 
+	if (term_ctx->cursor_x >= term_ctx->cols && (term_ctx->scroll_enabled || term_ctx->cursor_y < term_ctx->scroll_bottom_margin - 1)) 
 	{
-		ctx->cursor_x = 0;
-		ctx->cursor_y++;
-		if (ctx->cursor_y == ctx->scroll_bottom_margin) 
+		term_ctx->cursor_x = 0;
+		term_ctx->cursor_y++;
+		if (term_ctx->cursor_y == term_ctx->scroll_bottom_margin) 
 		{
-			ctx->cursor_y--;
+			term_ctx->cursor_y--;
 			scroll();
 		}
-		if (ctx->cursor_y >= ctx->rows)
-			ctx->cursor_y = ctx->rows - 1;
+		if (term_ctx->cursor_y >= term_ctx->rows)
+			term_ctx->cursor_y = term_ctx->rows - 1;
 	}
 
 	struct fb_char ch;
 	ch.c = c;
-	ch.bg = ctx->bg_color;
-	ch.fg = ctx->fg_color;
-	push_to_queue(&ch, ctx->cursor_x++, ctx->cursor_y);
+	ch.bg = term_ctx->bg_color;
+	ch.fg = term_ctx->fg_color;
+	push_to_queue(&ch, term_ctx->cursor_x++, term_ctx->cursor_y);
 }
 
 static void
@@ -627,22 +627,22 @@ putchar(uint8_t c)
 	switch (c)
 	{
 		case '\t':
-			if ((x / tabsize + 1) >= ctx->cols) 
+			if ((x / tabsize + 1) >= term_ctx->cols) 
 			{
-				terminal_set_cursor_pos(ctx->cols - 1, y);
+				terminal_set_cursor_pos(term_ctx->cols - 1, y);
 				return;
 			}
 			terminal_set_cursor_pos((x / tabsize + 1) * tabsize, y);
 			return;
 		case '\n':
-			if (y == ctx->scroll_bottom_margin - 1)
+			if (y == term_ctx->scroll_bottom_margin - 1)
 			{
 				scroll();
-				terminal_set_cursor_pos((ctx->oob_output & OOB_OUTPUT_ONLCR) ? 0 : x, y);
+				terminal_set_cursor_pos((term_ctx->oob_output & OOB_OUTPUT_ONLCR) ? 0 : x, y);
 			}
 			else
 			{
-				terminal_set_cursor_pos((ctx->oob_output & OOB_OUTPUT_ONLCR) ? 0 : x, y + 1);
+				terminal_set_cursor_pos((term_ctx->oob_output & OOB_OUTPUT_ONLCR) ? 0 : x, y + 1);
 			}
 			return;
 		case '\b':
@@ -690,8 +690,8 @@ terminal_print(const char *fmt, ...)
 void
 terminal_set_color(uint32_t fg, uint32_t bg)
 {
-	ctx->fg_color = convert_color(fg);
-	ctx->bg_color = convert_color(bg);
+	term_ctx->fg_color = convert_color(fg);
+	term_ctx->bg_color = convert_color(bg);
 }
 
 bool
@@ -741,10 +741,10 @@ terminal_init(void)
     0x00ffffff, /* grey */
 	};
 
-	ctx = ext_mem_alloc(sizeof(struct terminal_ctx));
-	if (!ctx) 
+	term_ctx = ext_mem_alloc(sizeof(struct terminal_ctx));
+	if (!term_ctx) 
 	{
-		serial_print("ERROR: Terminal: Could not alloc ctx\n");
+		serial_print("ERROR: Terminal: Could not alloc term_ctx\n");
 		goto fail;
 	}
 
@@ -761,28 +761,28 @@ terminal_init(void)
 	size_t font_scale_x = 1;
 	size_t font_scale_y = 1;
 
-	ctx->fb = (void *)(uintptr_t)fb->framebuffer_addr;
-	ctx->width = fb->framebuffer_width;
-	ctx->height = fb->framebuffer_height;
-	ctx->pitch = fb->framebuffer_pitch;
-	ctx->bytes_per_pixel = fb->framebuffer_bpp / 8;
+	term_ctx->fb = (void *)(uintptr_t)fb->framebuffer_addr;
+	term_ctx->width = fb->framebuffer_width;
+	term_ctx->height = fb->framebuffer_height;
+	term_ctx->pitch = fb->framebuffer_pitch;
+	term_ctx->bytes_per_pixel = fb->framebuffer_bpp / 8;
 
-	ctx->font_width = font_width;
-	ctx->font_height = font_height;
-	ctx->glyph_width = ctx->font_width * font_scale_x;
-	ctx->glyph_height = font_height * font_scale_y;
-	ctx->font_bits_size = font_size; 
-	ctx->font_bits = ext_mem_alloc(ctx->font_bits_size);
-	if (!ctx->font_bits)
+	term_ctx->font_width = font_width;
+	term_ctx->font_height = font_height;
+	term_ctx->glyph_width = term_ctx->font_width * font_scale_x;
+	term_ctx->glyph_height = font_height * font_scale_y;
+	term_ctx->font_bits_size = font_size; 
+	term_ctx->font_bits = ext_mem_alloc(term_ctx->font_bits_size);
+	if (!term_ctx->font_bits)
 	{
 		serial_print("ERROR: Terminal: Could not alloc font\n");
 		goto fail;
 	}
-	memcpy(ctx->font_bits, builtin_font, ctx->font_bits_size);
+	memcpy(term_ctx->font_bits, builtin_font, term_ctx->font_bits_size);
 
-	ctx->font_bool_size = 256 * ctx->font_height * ctx->font_width * sizeof(bool);
-	ctx->font_bool = ext_mem_alloc(ctx->font_bool_size);
-	if (!ctx->font_bool)
+	term_ctx->font_bool_size = 256 * term_ctx->font_height * term_ctx->font_width * sizeof(bool);
+	term_ctx->font_bool = ext_mem_alloc(term_ctx->font_bool_size);
+	if (!term_ctx->font_bool)
 	{
 		serial_print("ERROR: Terminal: Could not alloc font bool\n");
 		goto fail;
@@ -790,105 +790,105 @@ terminal_init(void)
 
 	for (size_t i = 0; i < 256; ++i)
 	{
-		uint8_t *glyph = &ctx->font_bits[i * ctx->font_height];
-		for (size_t y = 0; y < ctx->font_height; y++)
+		uint8_t *glyph = &term_ctx->font_bits[i * term_ctx->font_height];
+		for (size_t y = 0; y < term_ctx->font_height; y++)
 		{
 			/* chars in VGA fonts are 8 bits */
 			for (size_t x = 0; x < 8; ++x)
 			{
-				size_t offset = i * ctx->font_height * ctx->font_width + y * ctx->font_width + x;
+				size_t offset = i * term_ctx->font_height * term_ctx->font_width + y * term_ctx->font_width + x;
 
 				if ((glyph[y] & (0x80 >> x))) 
 				{
-					ctx->font_bool[offset] = true;
+					term_ctx->font_bool[offset] = true;
 				}
 				else 
 				{
-					ctx->font_bool[offset] = false;
+					term_ctx->font_bool[offset] = false;
 				}
 			}
 			
 			/* fill columns above line 8 */
-			for (size_t x = 8; x < ctx->font_width; ++x)
+			for (size_t x = 8; x < term_ctx->font_width; ++x)
 			{
-				size_t offset = i * ctx->font_height * ctx->font_width + y * ctx->font_width + x;
+				size_t offset = i * term_ctx->font_height * term_ctx->font_width + y * term_ctx->font_width + x;
 				if (i >= 0xc0 && i <= 0xdf)
 				{
-					ctx->font_bool[offset] = (glyph[y] & 1);
+					term_ctx->font_bool[offset] = (glyph[y] & 1);
 				}
 				else
 				{
-					ctx->font_bool[offset] = false;
+					term_ctx->font_bool[offset] = false;
 				}
 			}
 		}
 	}
 
-	ctx->cols = (ctx->width - margin * 2) / ctx->glyph_width;
-	ctx->rows = (ctx->height - margin * 2) / ctx->glyph_height;
+	term_ctx->cols = (term_ctx->width - margin * 2) / term_ctx->glyph_width;
+	term_ctx->rows = (term_ctx->height - margin * 2) / term_ctx->glyph_height;
 
-	ctx->offset_x = margin + ((ctx->width - margin * 2) % ctx->glyph_width) / 2;
-	ctx->offset_y = margin + ((ctx->height - margin * 2) % ctx->glyph_height) / 2;
+	term_ctx->offset_x = margin + ((term_ctx->width - margin * 2) % term_ctx->glyph_width) / 2;
+	term_ctx->offset_y = margin + ((term_ctx->height - margin * 2) % term_ctx->glyph_height) / 2;
 
-	ctx->cursor_x = 0;
-	ctx->cursor_y = 0;
+	term_ctx->cursor_x = 0;
+	term_ctx->cursor_y = 0;
 
-	ctx->scroll_top_margin = 0;
-	ctx->scroll_bottom_margin = ctx->rows;
+	term_ctx->scroll_top_margin = 0;
+	term_ctx->scroll_bottom_margin = term_ctx->rows;
 
-	ctx->red_mask_size    = fb->red_mask_size;   	
-	ctx->red_mask_shift	  = fb->red_mask_shift;
-	ctx->green_mask_size  = fb->green_mask_size;
-	ctx->green_mask_shift = fb->green_mask_shift;
-	ctx->blue_mask_size	  = fb->blue_mask_size;
-	ctx->blue_mask_shift  = fb->blue_mask_shift;
+	term_ctx->red_mask_size = fb->red_mask_size;   	
+	term_ctx->red_mask_shift = fb->red_mask_shift;
+	term_ctx->green_mask_size = fb->green_mask_size;
+	term_ctx->green_mask_shift = fb->green_mask_shift;
+	term_ctx->blue_mask_size = fb->blue_mask_size;
+	term_ctx->blue_mask_shift = fb->blue_mask_shift;
 	
-	ctx->bg_color = convert_color(default_bg);
-	ctx->fg_color = convert_color(default_fg);
+	term_ctx->bg_color = convert_color(default_bg);
+	term_ctx->fg_color = convert_color(default_fg);
 
-	ctx->grid_size = ctx->rows * ctx->cols * sizeof(struct fb_char);
-	ctx->grid = ext_mem_alloc(ctx->grid_size);
-	if (!ctx->grid)
+	term_ctx->grid_size = term_ctx->rows * term_ctx->cols * sizeof(struct fb_char);
+	term_ctx->grid = ext_mem_alloc(term_ctx->grid_size);
+	if (!term_ctx->grid)
 	{
 		serial_print("ERROR: Terminal: Could not alloc grid\n");
 		goto fail;
 	}
 
-	for (size_t i = 0; i < ctx->rows * ctx->cols; i++) 
+	for (size_t i = 0; i < term_ctx->rows * term_ctx->cols; i++) 
 	{
-		ctx->grid[i].c = ' ';
-		ctx->grid[i].fg = ctx->fg_color;
-		ctx->grid[i].bg = ctx->bg_color;
+		term_ctx->grid[i].c = ' ';
+		term_ctx->grid[i].fg = term_ctx->fg_color;
+		term_ctx->grid[i].bg = term_ctx->bg_color;
 	}
 
-	ctx->queue_size = ctx->rows * ctx->cols * sizeof(struct fb_queue_item);
-	ctx->queue = ext_mem_alloc(ctx->queue_size);
-	if (!ctx->queue)
+	term_ctx->queue_size = term_ctx->rows * term_ctx->cols * sizeof(struct fb_queue_item);
+	term_ctx->queue = ext_mem_alloc(term_ctx->queue_size);
+	if (!term_ctx->queue)
 	{
 		serial_print("ERROR: Terminal: Could not alloc fb queue\n");
 		goto fail;
 	}
-	memset(ctx->queue, 0, ctx->queue_size);
-	ctx->queue_i = 0;
+	memset(term_ctx->queue, 0, term_ctx->queue_size);
+	term_ctx->queue_i = 0;
 
-	ctx->map_size = ctx->rows * ctx->cols * sizeof(struct fb_queue_item);
-	ctx->map = ext_mem_alloc(ctx->map_size);
-	if (!ctx->map)
+	term_ctx->map_size = term_ctx->rows * term_ctx->cols * sizeof(struct fb_queue_item);
+	term_ctx->map = ext_mem_alloc(term_ctx->map_size);
+	if (!term_ctx->map)
 	{
 		serial_print("ERROR: Terminal: Could not alloc fb map\n");
 		goto fail;
 	}
-	memset(ctx->map, 0, ctx->map_size);	
+	memset(term_ctx->map, 0, term_ctx->map_size);	
 
-	ctx->cursor_enabled = true;
-	ctx->scroll_enabled = true;
+	term_ctx->cursor_enabled = true;
+	term_ctx->scroll_enabled = true;
 
 	for (size_t i = 0; i < 8; ++i) {
-		ctx->ansi_colors[i] = convert_color(ansi_colors[i]);
-		ctx->ansi_bright_colors[i] = convert_color(ansi_bright_colors[i]);
+		term_ctx->ansi_colors[i] = convert_color(ansi_colors[i]);
+		term_ctx->ansi_bright_colors[i] = convert_color(ansi_bright_colors[i]);
 	}
 
-	ctx->oob_output = OOB_OUTPUT_ONLCR; // translate carriage return to newline 
+	term_ctx->oob_output = OOB_OUTPUT_ONLCR; // translate carriage return to newline 
 
 	refresh();
 
@@ -899,22 +899,22 @@ fail:
 
 	serial_print("ERROR: Terminal: Terminal Init FAILED\n");
 
-	if (ctx == NULL) 
+	if (term_ctx == NULL) 
 		return false;
 
-	if (ctx->font_bool != NULL)
-		memmap_free(ctx->font_bool, ctx->font_bool_size);
+	if (term_ctx->font_bool != NULL)
+		memmap_free(term_ctx->font_bool, term_ctx->font_bool_size);
 
-	if (ctx->grid != NULL) 
-		memmap_free(ctx->grid, ctx->grid_size);
+	if (term_ctx->grid != NULL) 
+		memmap_free(term_ctx->grid, term_ctx->grid_size);
 
-	if (ctx->queue != NULL) 
-		memmap_free(ctx->queue, ctx->queue_size);
+	if (term_ctx->queue != NULL) 
+		memmap_free(term_ctx->queue, term_ctx->queue_size);
 
-	if (ctx->map != NULL)
-		memmap_free(ctx->map, ctx->map_size);
+	if (term_ctx->map != NULL)
+		memmap_free(term_ctx->map, term_ctx->map_size);
 	
-	memmap_free(ctx, sizeof(struct terminal_ctx));
+	memmap_free(term_ctx, sizeof(struct terminal_ctx));
 	return false;
 }
 
@@ -927,11 +927,11 @@ terminal_clear(void)
 
 	struct fb_char space;
 	space.c = ' ';
-	space.bg = ctx->bg_color;
-	space.fg = ctx->fg_color;
-	for (size_t y = 0; y < ctx->rows; ++y)
+	space.bg = term_ctx->bg_color;
+	space.fg = term_ctx->fg_color;
+	for (size_t y = 0; y < term_ctx->rows; ++y)
 	{
-		for (size_t x = 0; x < ctx->cols; ++x)
+		for (size_t x = 0; x < term_ctx->cols; ++x)
 		{
 			plot_char(&space, x, y);	
 		}
@@ -943,11 +943,11 @@ terminal_clear(void)
 void
 terminal_disable_cursor(void)
 {
-	ctx->cursor_enabled = false;
+	term_ctx->cursor_enabled = false;
 }
 
 void
 terminal_enable_cursor(void)
 {
-	ctx->cursor_enabled = true;
+	term_ctx->cursor_enabled = true;
 }
