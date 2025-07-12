@@ -17,5 +17,6 @@ struct menu_entry
 extern struct menu_entry *menu_tree;
 
 int config_init_disk(disk_t *boot_disk);
+char *config_get_value(const char *config, size_t index, const char *key);
 
 #endif // !__CONFIG_H__

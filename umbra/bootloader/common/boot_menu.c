@@ -3,10 +3,12 @@
 #include <drivers/vga.h>
 #include <drivers/serial.h>
 #include <drivers/disk.h>
+#include <lib/misc.h>
+#include <mm/pmm.h>
 #include <common/terminal.h>
 #include <common/config.h>
+#include <common/boot.h>
 #include <arch/x86_64/kbd.h>
-#include <lib/misc.h>
 
 static size_t
 print_tree(struct menu_entry *entry, size_t offset, size_t window, size_t level, size_t base_index, size_t selected_entry, struct menu_entry **selected_menu_entry)
@@ -129,10 +131,14 @@ _boot_menu(uint8_t drive)
 	terminal_get_cursor_pos(&x, &top);
 
 	size_t selected_entry = 0;
-	struct menu_entry *selected_menu_entry;
+	struct menu_entry *selected_menu_entry = NULL;
 
-	//print_tree(struct menu_tree *entry, size_t offset, size_t window, size_t level, size_t base_index, size_t selected_entry, struct menu_tree **selected_menu_entry)
 	size_t max_entries = print_tree(menu_tree, 0, term_ctx->rows - 8, 0, 0, selected_entry, &selected_menu_entry);
+	if (max_entries == 0 || selected_menu_entry == NULL)
+	{
+		serial_print("[PANIC] Boot Menu: Invalid configuration, no valid menu entries!\n");
+		while (1);
+	}
 
 	char c;
 	for (;;)
@@ -165,6 +171,11 @@ _boot_menu(uint8_t drive)
 				}
 				break;
 			case GETCHAR_ENTER:
+				if (selected_menu_entry->sub != NULL)
+				{
+					selected_menu_entry->expanded = !selected_menu_entry->expanded;
+					break;
+				}
 				serial_print("Boot Menu: Selected '%s'\n", selected_menu_entry->name);
 				goto load_kernel;
 		}
@@ -175,21 +186,8 @@ load_kernel:
 	terminal_clear();
 
 	terminal_set_cursor_pos(0, 0);
-	if (strcmp(selected_menu_entry->name, "REBOOT") == 0
-			|| strcmp(selected_menu_entry->name, "Reboot") == 0
-			|| strcmp(selected_menu_entry->name, "reboot") == 0)
-	{
-		/* TODO */
-		serial_print("Boot Menu: Rebooting...\n");
-		while (1);
-	}
 
-	terminal_print("Boot Menu: Selected '%s'\n", selected_menu_entry->name); // bug: why is there a dead pixel?
-	terminal_print("'%s'\n", selected_menu_entry->body);
-
-	/* TODO: load user's chosen kernel (umbra) */
-
-
-	while(1);	
+	boot(boot_disk, selected_menu_entry->body);
+	__builtin_unreachable();
 }
 

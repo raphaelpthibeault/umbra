@@ -71,6 +71,8 @@ typedef struct disk {
 
 void disk_create_index(void);
 disk_t *disk_get_by_drive(uint16_t drive);
+disk_t *get_boot_disk(void);
+struct partition *disk_get_partition_by_ids(uint16_t drive, uint16_t partition);
 
 void disk_read(disk_t *disk, uint64_t loc, uint64_t size, void *buf);
 

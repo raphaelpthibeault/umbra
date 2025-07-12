@@ -160,17 +160,5 @@ partition_read(struct partition *part, size_t loc, size_t size, void *buf)
 	size_t location = (part->first_sector << part->parent_disk->log_sector_size) + loc;
 
 	disk_read(part->parent_disk, location, size, buf);
-
-	/*
-	putstr("loc (in disk): 0x", COLOR_YEL, COLOR_BLK);
-	{
-		char res[8];
-		itoa(location, res, 16);
-		putstr(res, COLOR_YEL, COLOR_BLK);
-	}
-	putstr("\n", COLOR_YEL, COLOR_BLK);
-	*/
-	//print_buffer_hex(buf, 10, COLOR_YEL, COLOR_BLK);
-
 }
 

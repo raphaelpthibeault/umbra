@@ -232,7 +232,9 @@ config_init_disk(disk_t *boot_disk)
 	{
 		struct partition part = boot_disk->partition[i];
 		if ((fh = fopen(&part, "/boot/bootloader/umbra.cfg")) != NULL)
+		{
 			goto opened;
+		}
 	}
 
 	return -1;
@@ -247,3 +249,37 @@ opened:
 	return config_init(config_size);
 }
 
+
+char *
+config_get_value(const char *config, size_t index, const char *key)
+{
+	if (!key) 
+		return NULL;
+
+	if (!config)
+		config = config_addr;
+
+	size_t key_len = strlen(key);
+
+	for (size_t i = 0; config[i]; ++i)
+	{
+		if (strncmp(&config[i], key, key_len) == 0 && config[i + key_len] == ':')
+		{
+			if (i && config[i - 1] != '\n')
+				continue;
+			if (index--)
+				continue;
+			i += key_len + 1;
+			while (config[i] == ' ' || config[i] == '\t')
+				++i;
+
+			size_t value_len;
+			for (value_len = 0; config[i + value_len] && config[i + value_len] != '\n'; ++value_len);
+			char *buf = ext_mem_alloc(value_len + 1);
+			memcpy(buf, config + i, value_len);
+			return buf;
+		}
+	}
+
+	return NULL;
+}

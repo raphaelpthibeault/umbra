@@ -1,0 +1,27 @@
+ARCH=x86_64
+
+CC= $(ARCH)-elf-gcc
+
+KERNEL_ASFLAGS 	= -c -nostdlib -I./arch/$(ARCH)/
+KERNEL_CFLAGS  	= -c -ffreestanding -std=c23 -fno-pie -fno-stack-protector -nostdlib -nostdinc -Wall -Wextra -ffreestanding -fno-strict-aliasing -O2 -g -I./ 
+KERNEL_LD_FLAGS	= -nostdlib
+
+KERNEL_ASM_SOURCES= arch/$(ARCH)/bootstrap.S
+KERNEL_C_SOURCES	= arch/$(ARCH)/main.c 
+
+KERNEL_ASM_OBJS := $(KERNEL_ASM_SOURCES:.S=.S.o)
+KERNEL_C_OBJS := $(KERNEL_C_SOURCES:.c=.c.o)
+KERNEL_OBJS := $(KERNEL_ASM_OBJS) $(STAGE2_C_OBJS)
+
+%.S.o: %.S
+	$(CC) $(KERNEL_ASFLAGS) -o $@ $^
+
+%.c.o: %.c
+	$(CC) $(KERNEL_CFLAGS) -o $@ $^
+
+kernel: $(KERNEL_OBJS)
+	$(CC) $(KERNEL_LD_FLAGS) -N -T arch/$(ARCH)/link.ld -o $@ $^ #-Wl,-Map,umbra.map
+
+clean:
+	find . -name "*.o" | xargs rm -f
+	rm -f kernel

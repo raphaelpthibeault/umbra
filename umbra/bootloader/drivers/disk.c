@@ -32,6 +32,23 @@ disk_get_by_drive(uint16_t drive) {
 	return NULL;
 }
 
+struct partition *
+disk_get_partition_by_ids(uint16_t drive, uint16_t partition)
+{
+	for (uint32_t i = 0; i < disk_list_idx; ++i)
+	{
+		if (disk_list[i].data->drive == drive)
+		{
+			for (int j = 0; j < disk_list[i].max_partition; ++j)
+			{
+				if (disk_list[i].partition[i].number == partition)
+					return &disk_list[i].partition[i];
+			}
+		}
+	}
+	return NULL;
+}
+
 /* return number of sectors that can be safely read at a time */
 static size_t
 get_safe_sectors(disk_t *disk, uint64_t start_sector)
