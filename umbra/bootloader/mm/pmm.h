@@ -4,12 +4,15 @@
 #include <types.h>
 #include <lib/misc.h>
 
+#define PAGE_SIZE 0x1000
+
 #define MEMMAP_USABLE                 1
 #define MEMMAP_RESERVED               2
 #define MEMMAP_ACPI_RECLAIMABLE       3
 #define MEMMAP_ACPI_NVS               4
 #define MEMMAP_BAD_MEMORY             5
 #define MEMMAP_BOOTLOADER_RECLAIMABLE 0x1000
+#define MEMMAP_KERNEL_AND_MODULES			0x1001
 
 #define ALIGN_UP(x, a) ({ \
     __auto_type ALIGN_UP_value = (x); \

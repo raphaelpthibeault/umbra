@@ -5,6 +5,7 @@
 #include <drivers/vga.h>
 #include <drivers/disk.h>
 #include <fs/fat32.h>
+#include <drivers/serial.h>
 
 static bool
 is_valid_mbr(disk_t *disk) 

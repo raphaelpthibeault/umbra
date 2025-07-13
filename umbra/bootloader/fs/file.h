@@ -19,5 +19,6 @@ struct filehandle {
 struct filehandle *fopen(struct partition *part, const char *path);
 void fclose(struct filehandle *fh);
 void fread(struct filehandle *fh, void *buf, uint64_t loc, uint64_t count);
+void *freadall(struct filehandle *fh, uint32_t type);
 
 #endif // !__FILE_H__

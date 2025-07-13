@@ -5,6 +5,7 @@
 #include <lib/misc.h>
 #include <drivers/vga.h>
 #include <mm/pmm.h>
+#include <drivers/serial.h>
 
 struct fat32_filehandle {
 	struct fat32_context ctx;
@@ -255,7 +256,6 @@ read_cluster_chain(struct fat32_context *ctx, uint32_t *cluster_chain, void *buf
 
 		uint64_t base = ((uint64_t)ctx->data_start_lba + (cluster_chain[block] - 2) * ctx->sectors_per_cluster) * ctx->bytes_per_sector;
 		partition_read(ctx->part, base + offset, chunk, buf + progress);
-
 		progress += chunk;
 	}
 
@@ -481,7 +481,10 @@ static void
 fat32_read(struct filehandle *fh, void *buf, uint64_t loc, uint64_t count) 
 {
 	struct fat32_filehandle *fd = (struct fat32_filehandle *)fh->fd;
-	read_cluster_chain(&fd->ctx, fd->cluster_chain, buf, loc, count);
+	if (!read_cluster_chain(&fd->ctx, fd->cluster_chain, buf, loc, count))
+	{
+		serial_print("[WARNING] FAT32: Error reading cluster chain\n");
+	}
 }
 
 static void

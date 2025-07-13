@@ -62,8 +62,8 @@ uri_dispatch_boot(disk_t *boot_disk, char *path)
 	struct filehandle *fh;
 	for (int i = 0; i < boot_disk->max_partition; ++i)
 	{
-		struct partition part = boot_disk->partition[i];
-		if ((fh = fopen(&part, path)) != NULL)
+		struct partition *part = &boot_disk->partition[i];
+		if ((fh = fopen(part, path)) != NULL)
 		{
 			return fh;
 		}

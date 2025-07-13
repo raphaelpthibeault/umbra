@@ -9,7 +9,6 @@
 
 #define FREE_MEM 0x100000 /* RAM, extended memory ; 00x100000-x00efffff  */
 #define memmap_max_entries ((size_t)512)
-#define PAGE_SIZE 0x1000
 
 struct memmap_entry memmap[memmap_max_entries];
 size_t memmap_entries = 0;

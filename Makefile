@@ -22,4 +22,5 @@ run: build
 
 clean:
 	make -C umbra/bootloader clean
+	make -C umbra/kernel clean
 	rm -f umbra.hdd

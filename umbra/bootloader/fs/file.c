@@ -3,6 +3,7 @@
 #include <lib/misc.h>
 #include <mm/pmm.h>
 #include <drivers/vga.h>
+#include <drivers/serial.h>
 
 struct filehandle *
 fopen(struct partition *part, const char *path)
@@ -54,5 +55,31 @@ fread(struct filehandle *fh, void *buf, uint64_t loc, uint64_t count)
 	} else {
 		fh->read(fh, buf, loc, count);	
 	}
+}
+
+void *
+freadall(struct filehandle *fh, uint32_t type)
+{
+	if (fh->is_memfile)
+	{
+		if (fh->readall)
+			return fh->fd;
+
+		memmap_alloc_range((uint64_t)(size_t)fh->fd, ALIGN_UP(fh->size, 4096), type, 0, true, false);
+		fh->readall = true;
+		return fh->fd;
+	}
+	else
+	{
+		void *ret = ext_mem_alloc_aligned(fh->size, type, PAGE_SIZE, false);	
+		fh->read(fh, ret, 0, fh->size);
+		fh->close(fh);
+		fh->fd = ret;
+		fh->readall = true;
+		fh->is_memfile = true;
+		return ret;
+	}
+
+	__builtin_unreachable();
 }
 

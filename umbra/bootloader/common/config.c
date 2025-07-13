@@ -230,8 +230,8 @@ config_init_disk(disk_t *boot_disk)
 	struct filehandle *fh;
 	for (int i = 0; i < boot_disk->max_partition; ++i)
 	{
-		struct partition part = boot_disk->partition[i];
-		if ((fh = fopen(&part, "/boot/bootloader/umbra.cfg")) != NULL)
+		struct partition *part = &boot_disk->partition[i];
+		if ((fh = fopen(part, "/boot/bootloader/umbra.cfg")) != NULL)
 		{
 			goto opened;
 		}

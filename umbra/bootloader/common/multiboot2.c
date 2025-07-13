@@ -30,6 +30,17 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	serial_print("Multiboot2: Found executable: '%s'\n", kernel_path);
 
 	/* TODO literally everything */
+	uint8_t *kernel = freadall(kernel_file, MEMMAP_KERNEL_AND_MODULES);
+	if (kernel == NULL)
+	{
+		serial_print("[PANIC] could not read kernel\n");
+		while (1);
+	}
+	size_t kernel_file_size = kernel_file->size;
+	fclose(kernel_file);
+
+	serial_print("Multiboot2: Read kernel into memory\n");
+
 
 	memmap_free(kernel_path, strlen(kernel_path) + 1);
 	while (1);
