@@ -13,6 +13,14 @@ multiboot2_header:
 	.long MULTIBOOT2_LENGTH
 	.long MULTIBOOT2_CHECKSUM
 
+/* the requests */
+# address tag
+# entry tag
+# framebuffer tag
+# modules must be aligned
+# relocatable tag
+# end tag
+
 multiboot2_header_end:
 
 # stack
