@@ -187,7 +187,7 @@ umbra_mkimage(const char *out_file)
 
 	char boot_file[] = "boot.hdd";
 	char core_file[] = "core.hdd";
-	char dir[] = "umbra/bootloader/"; // calling from root direcotry, so bootloader directory as working directory TODO ? have some global bin var that umbra/Makefile writes to ?
+	char dir[] = "bootloader/"; // calling from root direcotry, so bootloader directory as working directory TODO ? have some global bin var that umbra/Makefile writes to ?
 
 	umbra_info("setting up '%s'...", out_file);
 
