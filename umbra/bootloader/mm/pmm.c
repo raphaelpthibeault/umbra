@@ -13,6 +13,12 @@
 struct memmap_entry memmap[memmap_max_entries];
 size_t memmap_entries = 0;
 
+/* returns true if [base1-top1] is FULLY contained by [base2-top2], false otherwise*/
+static inline __attribute__((always_inline)) bool
+check_full_overlap(uint64_t base1, uint64_t top1, uint64_t base2, uint64_t top2)
+{
+	return (base1 >= base2 && base1 < top2) && (top1 > base2 && top1 <= top2);
+}
 
 static bool
 page_align_entry(uint64_t *base, uint64_t *length) {
@@ -462,3 +468,51 @@ memmap_realloc(void *oldptr, size_t oldsize, size_t newsize)
 	return newptr;
 }
 
+
+bool
+check_usable_memory(uint64_t base, uint64_t top)
+{
+	uint64_t overlap_remaining = top - base;
+
+	for (size_t i = 0; i < memmap_entries; ++i)
+	{
+		if (memmap[i].type != MEMMAP_USABLE && memmap[i].type != MEMMAP_BOOTLOADER_RECLAIMABLE && memmap[i].type != MEMMAP_KERNEL_AND_MODULES)
+		{
+			continue;
+		}
+
+		uint64_t entry_top = memmap[i].base + memmap[i].length;
+		if (check_full_overlap(base, top, memmap[i].base, entry_top))
+		{
+			return true;
+		}
+
+		if ((memmap[i].base >= base && memmap[i].base < top)
+				|| (entry_top > base && entry_top <= top))
+		{
+			uint64_t overlap_top, overlap_bottom, overlap_size;
+
+			overlap_bottom = base;	
+			if (memmap[i].base >= base && memmap[i].base < top)
+			{
+				overlap_bottom = memmap[i].base;
+			}
+
+			overlap_top = top;
+			if (entry_top > base && entry_top <= top)
+			{
+				overlap_top = entry_top;
+			}
+
+			overlap_size = overlap_top - overlap_bottom;
+			overlap_remaining -= overlap_size;
+
+			if (overlap_remaining == 0)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}

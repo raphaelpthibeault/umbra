@@ -50,5 +50,6 @@ void *memmap_realloc(void *oldptr, size_t oldsize, size_t newsize);
 void *ext_mem_alloc(size_t count);
 void *ext_mem_alloc_aligned(size_t count, uint32_t type, size_t alignment, bool allow_high_alloc);
 
+bool check_usable_memory(uint64_t base, uint64_t top);
 
 #endif // !__PMM_H__

@@ -4,6 +4,7 @@ ENTRY(start)
 SECTIONS
 {
 	. = 1M;
+	physical_start = .;
 
 	.text BLOCK(4K) : ALIGN(4K)
 	{
@@ -24,7 +25,11 @@ SECTIONS
 	
 	.bss BLOCK(4K) : ALIGN(4K)
 	{
+		PROVIDE(bss_start = .);
+		*(COMMON)
 		*(.bss)	
+		*(.stack)
 	}
+	physical_end = .;
 
 }
