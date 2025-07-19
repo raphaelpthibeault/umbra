@@ -37,14 +37,19 @@ success:
 void
 fclose(struct filehandle *fh) 
 {
-	if (fh->is_memfile && fh->readall == false) {
-		memmap_free(fh->fd, fh->size);
-	} else {
+	if (fh->is_memfile)
+	{
+		if (fh->readall == false) 
+		{
+			memmap_free(fh->fd, fh->size);
+		}
+	}
+	else
+	{
 		fh->close(fh);
 	}
 	memmap_free(fh->path, fh->path_len);
 	memmap_free(fh, sizeof(struct filehandle));
-	fh = NULL; // might not be the responsibility of this function, but whatever I put it here for now
 }
 
 void
@@ -77,6 +82,7 @@ freadall(struct filehandle *fh, uint32_t type)
 		fh->fd = ret;
 		fh->readall = true;
 		fh->is_memfile = true;
+
 		return ret;
 	}
 

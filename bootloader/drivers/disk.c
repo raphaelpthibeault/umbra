@@ -8,6 +8,8 @@
 #include <arch/x86_64/real.h>
 #include <arch/x86_64/cpu.h>
 
+#include <drivers/serial.h>
+
 #define READ 0
 #define WRITE 1
 
@@ -132,10 +134,11 @@ disk_read(disk_t *disk, uint64_t loc, uint64_t size, void *buf)
 	uint64_t read_length = 16;
 	uint64_t cache_size = read_length << disk->log_sector_size;
 	uint8_t *cache = ext_mem_alloc(cache_size);
-	memset(cache, 0, cache_size);
 
 	uint64_t progress = 0;
 	while (progress < size) {
+		memset(cache, 0, cache_size);
+
 		uint64_t start_sector = (loc + progress) >> disk->log_sector_size;
 		uint64_t sectors_to_read = (total_bytes - progress) >> disk->log_sector_size;
 

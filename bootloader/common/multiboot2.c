@@ -2,12 +2,62 @@
 #include <common/config.h>
 #include <common/uri.h>
 #include <common/relocation.h>
+#include <common/acpi.h>
 #include <lib/misc.h>
+#include <lib/elf.h>
 #include <types.h>
 #include <fs/file.h>
 #include <drivers/disk.h>
 #include <drivers/serial.h>
 #include <mm/pmm.h>
+
+#define UMBRA_BRAND "Umbra" // should probably add a version
+#define MEMMAP_MAX 256
+#define DHCP_ACK_PACKET_LEN 296 /* I won't support PXE boot but maybe? Anyways place it here for the network tag info */
+
+static size_t
+get_mb2_info_size(
+		char *cmdline,
+		size_t modules_size,
+		uint32_t section_entry_size, 
+		uint32_t section_nb,
+		uint32_t smbios_tag_size)
+{
+	return	ALIGN_UP(sizeof(struct multiboot2_start_tag), MULTIBOOT_TAG_ALIGN) +																						// start
+					ALIGN_UP(sizeof(struct multiboot_tag_string) + strlen(cmdline) + 1, MULTIBOOT_TAG_ALIGN) +                      // cmdline
+					ALIGN_UP(sizeof(struct multiboot_tag_string) + sizeof(UMBRA_BRAND), MULTIBOOT_TAG_ALIGN) +											// bootloader brand
+					ALIGN_UP(sizeof(struct multiboot_tag_framebuffer), MULTIBOOT_TAG_ALIGN) +                                       // framebuffer
+					ALIGN_UP(sizeof(struct multiboot_tag_new_acpi) + sizeof(struct rsdp), MULTIBOOT_TAG_ALIGN) +                    // new ACPI info
+					ALIGN_UP(sizeof(struct multiboot_tag_old_acpi) + 20, MULTIBOOT_TAG_ALIGN) +                                     // old ACPI info
+					ALIGN_UP(sizeof(struct multiboot_tag_elf_sections) + section_entry_size * section_nb, MULTIBOOT_TAG_ALIGN) +		// ELF info
+					ALIGN_UP(modules_size, MULTIBOOT_TAG_ALIGN) +                                                                   // modules
+					ALIGN_UP(sizeof(struct multiboot_tag_load_base_addr), MULTIBOOT_TAG_ALIGN) +                                    // load base address
+					ALIGN_UP(smbios_tag_size, MULTIBOOT_TAG_ALIGN) +                                                                // SMBIOS
+					ALIGN_UP(sizeof(struct multiboot_tag_basic_meminfo), MULTIBOOT_TAG_ALIGN) +                                     // basic memory info
+					ALIGN_UP(sizeof(struct multiboot_tag_mmap) + sizeof(struct multiboot_mmap_entry) * MEMMAP_MAX, MULTIBOOT_TAG_ALIGN) +  // MMAP
+					ALIGN_UP(sizeof(struct multiboot_tag_network) + DHCP_ACK_PACKET_LEN, MULTIBOOT_TAG_ALIGN) +											// network info
+					ALIGN_UP(sizeof(struct multiboot_tag), MULTIBOOT_TAG_ALIGN);                                                    // end
+}
+
+static struct multiboot_header *
+find_header(uint8_t *buffer, size_t len)
+{
+	struct multiboot_header *header;
+	/* The header should be at least 12 bytes and aligned on a 4-byte boundary */
+	for (header = (struct multiboot_header *)buffer;
+			((uint8_t *)header <= buffer + len - 12);
+			header = (struct multiboot_header *)((uint32_t *)header + MULTIBOOT_HEADER_ALIGN / 4))
+	{
+		if (header->magic == MULTIBOOT2_HEADER_MAGIC 
+				&& !(header->magic + header->architecture + header->header_length + header->checksum))
+		{
+			return header;
+		}
+	}
+
+	return NULL;
+}
+
 
 noreturn void
 multiboot2_load(disk_t *boot_disk, char *config)
@@ -30,7 +80,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	}
 	serial_print("Multiboot2: Found executable: '%s'\n", kernel_path);
 
-	uint8_t *kernel = freadall(kernel_file, MEMMAP_KERNEL_AND_MODULES);
+	void *kernel = freadall(kernel_file, MEMMAP_KERNEL_AND_MODULES);
 	if (kernel == NULL)
 	{
 		serial_print("[PANIC] could not read kernel\n");
@@ -38,33 +88,16 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	}
 	size_t kernel_file_size = kernel_file->size;
 	fclose(kernel_file);
+ 
+	serial_print("Multiboot2: Read kernel into memory, file size 0x%x\n", kernel_file_size);
 
-	serial_print("Multiboot2: Read kernel into memory\n");
-
-	struct multiboot_header *header;
-	for (size_t header_offset = 0; header_offset < MULTIBOOT_SEARCH; header_offset += MULTIBOOT_HEADER_ALIGN)
+	struct multiboot_header *header = find_header(kernel, kernel_file_size < MULTIBOOT_SEARCH ? kernel_file_size : MULTIBOOT_SEARCH);
+	if (header == NULL)
 	{
-		header = (void *)(kernel + header_offset);	
-
-		if (header->magic == MULTIBOOT2_HEADER_MAGIC)
-			break;
-	}
-	serial_print("Multiboot2: Found the header\n");
-
-	if (header->magic != MULTIBOOT2_HEADER_MAGIC)
-	{
-		serial_print("[PANIC] Multiboot2: Invalid magic number!\n");
+		serial_print("[PANIC] Multiboot2: Could not find the multiboot2 header!\n");
 		while (1);
 	}
-	serial_print("Multiboot2: Magic is valid\n");
-
-	if (header->magic + header->architecture + header->header_length + header->checksum)
-	{
-		serial_print("[PANIC] Multiboot2: Invalid header checksum!\n");
-		while (1);
-	}
-	serial_print("Multiboot2: Checksum is valid\n");
-
+	serial_print("Multiboot2: Valid multiboot2 header\n");
 	
 	uint64_t entry_point = 0xffffffff; /* load kernel at this point if no entry tag */
 	struct multiboot_header_tag_address *address_tag = NULL;
@@ -128,10 +161,12 @@ multiboot2_load(disk_t *boot_disk, char *config)
 
 	}
 
-	serial_print("Multiboot2: Tag parsing done\n");
+	serial_print("Multiboot2: Tag lexing done\n");
 
 	struct relocation_range *ranges;
 	uint64_t ranges_count = 1;
+	bool shdr_info_valid = false;
+	struct elf_shdr_info shdr_info = {0};
 	if (address_tag != NULL)
 	{
 		size_t header_offset = (size_t)header - (size_t)kernel;	
@@ -197,7 +232,24 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	}
 	else
 	{
-		/* TODO */
+		serial_print("Multiboot2: No address tag found, proceeding with ELF loading.\n");
+
+		struct elf64_ehdr *ehdr = (struct elf64_ehdr *)(kernel);
+		if (ehdr->ident[EI_MAG0] != ELFMAG0
+				|| ehdr->ident[EI_MAG1] != ELFMAG1
+				|| ehdr->ident[EI_MAG2] != ELFMAG2
+				|| ehdr->ident[EI_MAG3] != ELFMAG3)
+		{
+			serial_print("ehdr->ident[0]: 0x%x\n", ehdr->ident[EI_MAG0]);
+			serial_print("ehdr->ident[1]: 0x%x\n", ehdr->ident[EI_MAG1]);
+			serial_print("ehdr->ident[2]: 0x%x\n", ehdr->ident[EI_MAG2]);
+			serial_print("ehdr->ident[3]: 0x%x\n", ehdr->ident[EI_MAG3]);
+			serial_print("[PANIC] Invalid ELF64 magic!\n");
+			while (1);
+		}
+		serial_print("Elf: Valid ELF64 magic\n");
+
+
 		serial_print("[PANIC] Multiboot2: Booting without giving address tag is currently unsupported\n");
 		while (1);
 	}
@@ -267,13 +319,40 @@ reloc_fail:
 	}
 	else
 	{
-		serial_print("Multiboot2: Will relocate to: \n\tbase: 0x%x\n", ranges->target);
+		serial_print("Multiboot2: Will relocate kernel to: \n\tbase: 0x%x\n", ranges->target);
 		serial_print("\ttop: 0x%x\n", ranges->target + ranges->length);
 	}
+	uint64_t load_base_addr = ranges->target;
 
 	/* TODO modules */
+	size_t modules_size = 0;
+	size_t n_modules = 0;
 
-	uint64_t load_base_addr = ranges->target;
+
+	struct smbios_entry_point_32 *smbios_eps_32 = NULL;
+	struct smbios_entry_point_64 *smbios_eps_64 = NULL;
+
+	acpi_get_smbios((void **)&smbios_eps_32, (void **)&smbios_eps_64);
+	uint32_t smbios_tag_size = 0;
+
+	if (smbios_eps_32 != NULL)
+	{
+		smbios_tag_size += sizeof(struct multiboot_tag_smbios) + smbios_eps_32->entry_point_length;
+	}
+	if (smbios_eps_64 != NULL)
+	{
+		smbios_tag_size += sizeof(struct multiboot_tag_smbios) + smbios_eps_64->entry_point_length;
+	}
+
+	/* TODO cmdline config option */
+	char *cmdline = "";
+	size_t mb2_info = get_mb2_info_size(
+			cmdline,
+			modules_size,
+			shdr_info_valid ? shdr_info.section_entry_size : 0,
+			shdr_info_valid ? shdr_info.num : 0,
+			smbios_tag_size
+	);
 
 
 

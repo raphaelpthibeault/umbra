@@ -419,6 +419,12 @@ struct multiboot_tag_load_base_addr
 #endif /*  ! ASM_FILE */
 /* END OF multiboot2.h FROM MULTIBOOT SPECIFICATION */
 
+struct multiboot2_start_tag
+{
+	uint32_t size;
+	uint32_t reserved;
+};
+
 noreturn void multiboot2_load(disk_t *boot_disk, char *config);
 
 #endif // !__MULTIBOOT2_H__

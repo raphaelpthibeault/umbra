@@ -1,35 +1,42 @@
 OUTPUT_FORMAT(elf64-x86-64)
 ENTRY(start)
 
+kernel_physical_base = 1M;
+kernel_virtual_base = 0xffffffff80000000;
+
 SECTIONS
 {
-	. = 1M;
+	. = kernel_physical_base + kernel_virtual_base;
+
 	physical_start = .;
 
-	.text BLOCK(4K) : ALIGN(4K)
+	.text : AT(ADDR(.text) - kernel_virtual_base)
 	{
 		*(.multiboot)
 		*(.bootstrap)
-		*(.text)
+		*(.text .text.*)
 	}
 
-	.rodata BLOCK(4K) : ALIGN(4K)
+	.rodata : AT(ADDR(.rodata) - kernel_virtual_base)
 	{
-		*(.rodata)	
+		*(.rodata .rodata.*)	
 	}
 
-	.data BLOCK(4K) : ALIGN(4K)
+	.data : AT(ADDR(.data) - kernel_virtual_base)
 	{
-		*(.data)	
+		*(.data .data.*)	
 	}
 	
-	.bss BLOCK(4K) : ALIGN(4K)
+	.bss : AT(ADDR(.bss) - kernel_virtual_base)
 	{
 		PROVIDE(bss_start = .);
 		*(COMMON)
-		*(.bss)	
-		*(.stack)
+		*(.bss .bss.*)	
+		/* *(.stack) */
 	}
-	physical_end = .;
 
+	virtual_end = .;
+	physical_end = . - kernel_virtual_base;
+
+	/DISCARD/ : { *(.comment) }
 }

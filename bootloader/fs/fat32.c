@@ -7,6 +7,8 @@
 #include <mm/pmm.h>
 #include <drivers/serial.h>
 
+#include <drivers/disk.h>
+
 struct fat32_filehandle {
 	struct fat32_context ctx;
 	uint32_t first_cluster;
@@ -255,7 +257,9 @@ read_cluster_chain(struct fat32_context *ctx, uint32_t *cluster_chain, void *buf
 		}
 
 		uint64_t base = ((uint64_t)ctx->data_start_lba + (cluster_chain[block] - 2) * ctx->sectors_per_cluster) * ctx->bytes_per_sector;
+
 		partition_read(ctx->part, base + offset, chunk, buf + progress);
+
 		progress += chunk;
 	}
 
@@ -460,7 +464,7 @@ fat32_open(struct partition *part, const char *path)
 			ret->ctx = ctx;
 			ret->first_cluster = curr_file.cluster_num_low;
 			if (ctx.type == 32) {
-				ret->first_cluster |= (uint64_t)curr_file.cluster_num_high << 16;
+				ret->first_cluster |= (uint32_t)curr_file.cluster_num_high << 16;
 			}
 			ret->size_bytes = curr_file.file_size_bytes;
 			ret->size_sectors = DIV_ROUNDUP(curr_file.file_size_bytes, ctx.bytes_per_sector);

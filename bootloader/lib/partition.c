@@ -159,7 +159,6 @@ void
 partition_read(struct partition *part, size_t loc, size_t size, void *buf)
 {
 	size_t location = (part->first_sector << part->parent_disk->log_sector_size) + loc;
-
 	disk_read(part->parent_disk, location, size, buf);
 }
 

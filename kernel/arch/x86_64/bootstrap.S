@@ -15,6 +15,7 @@ multiboot2_header:
 	.long MULTIBOOT2_CHECKSUM
 
 /* the requests */
+	/*
 	.align 8
 # address tag
 multiboot2_tag_address:
@@ -32,7 +33,7 @@ multiboot2_tag_entry_address:
 	.word 0
 	.long 12
 	.long start_multiboot2
-# TODO framebuffer tag
+	*/
 
 	.align 8
 multiboot2_tag_framebuffer:
@@ -61,47 +62,23 @@ multiboot2_tag_relocatable:
 
 multiboot2_header_end:
 
-# NOTE: .stack is in .bss
-.section .stack, "aw", @nobits
-stack_bottom:
-	.skip 16384 /* 16KiB */
-	.global stack_top
-stack_top:
-
 	.section .bootstrap
 	.code32
 	.align 4
-start_multiboot2: # multiboot2 needs a different start
-	# Multiboot2 Manual 3.6.1
-	# %ebx: physical address of a Multiboot2 information data structure that bootloade hands over to kernel
-
-	movl %ebx, %ecx
-	addl $8, %ecx # use the reserved 0 space of boot info struct to thunk eip	
-	jmp thunked	
-	
+	.globl start
 start:
-	movl %ebx, %ecx
-	addl $16, %ecx # use boot_drive to thunk eip
+	#movl %ebx, %ecx
+	#addl $16, %ecx # use boot_drive to thunk eip
+	movl %edi, %ebx
+	movl %esi, %eax
 
-thunked:
-	movl %ecx, %esp
-	jmp forward
-
-forward:
-	popl %ecx
-	subl $forward, %ecx
-	# setup stack
-	movl $stack_top, %esp
-	addl %ecx, %esp
+	#popl %ecx
+	#subl $forward, %ecx
+	# TODO setup stack
+	#movl $stack_top, %esp
+	#addl %ecx, %esp
 	# 'assert stack is 16-byte aligned
-	and $-16, %esp
-
-	pushl $0
-	pushl %esp
-	pushl $0
-	pushl %eax # Multiboot header magic
-	pushl $0
-	pushl %ebx # Multiboot header pointer
+	#and $-16, %esp
 
 	jmp jmp_to_long
 
@@ -110,5 +87,9 @@ jmp_to_long:
 	jmp jmp_to_long
 
 
-
+.section .bss
+stack_bottom:
+	.skip 16384 /* 16KiB */
+	.global stack_top
+stack_top:
 
