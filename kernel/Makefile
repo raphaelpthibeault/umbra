@@ -2,7 +2,7 @@ ARCH=x86_64
 
 CC= $(ARCH)-elf-gcc
 
-KERNEL_ASFLAGS 	= -c -nostdlib -I./arch/$(ARCH)/
+KERNEL_ASFLAGS 	= -c -nostdlib -I./arch/$(ARCH)/ -I./
 KERNEL_CFLAGS  	= -c -ffreestanding -std=c23 -fno-pie -fno-stack-protector -nostdlib -nostdinc -Wall -Wextra -ffreestanding -fno-strict-aliasing -O2 -g -I./ 
 KERNEL_LD_FLAGS	= -nostdlib
 

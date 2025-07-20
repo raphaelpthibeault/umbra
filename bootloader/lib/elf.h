@@ -2,6 +2,7 @@
 #define __LIB_ELF_H__
 
 #include <types.h>
+#include <common/relocation.h>
 
 #define EI_MAG0		0			/* File identification byte 0 index */
 #define ELFMAG0		0x7f	/* Magic number byte 0 */
@@ -13,24 +14,6 @@
 #define ELFMAG3		'F'		/* Magic number byte 3 */
 
 #define EI_NIDENT (16)
-
-struct elf32_ehdr
-{
-  uint8_t		ident[EI_NIDENT];	/* Magic number and other info */
-  uint16_t	type;				/* Object file type */
-  uint16_t	machine;		/* Architecture */
-  uint32_t	version;		/* Object file version */
-  uint32_t	entry;			/* Entry point virtual address */
-  uint32_t	phoff;			/* Program header table file offset */
-  uint32_t	shoff;			/* Section header table file offset */
-  uint32_t	flags;			/* Processor-specific flags */
-  uint16_t	ehsize;			/* ELF header size in bytes */
-  uint16_t	phentsize;	/* Program header table entry size */
-  uint16_t	phnum;			/* Program header table entry count */
-  uint16_t	shentsize;	/* Section header table entry size */
-  uint16_t	shnum;			/* Section header table entry count */
-  uint16_t	shstrndx;		/* Section header string table index */
-};
 
 struct elf64_ehdr
 {
@@ -50,50 +33,30 @@ struct elf64_ehdr
   uint16_t	shstrndx;		/* Section header string table index */
 };
 
-struct elf64_hdr
+struct elf64_phdr
 {
-	uint8_t  ident[16];
-	uint16_t type;
-	uint16_t machine;
-	uint32_t version;
-	uint64_t entry;
-	uint64_t phoff;
-	uint64_t shoff;
-	uint32_t flags;
-	uint16_t hdr_size;
-	uint16_t phdr_size;
-	uint16_t ph_num;
-	uint16_t shdr_size;
-	uint16_t sh_num;
-	uint16_t shstrndx;
+  uint32_t	type;			/* Segment type */
+  uint32_t	flags;		/* Segment flags */
+  uint64_t	offset;		/* Segment file offset */
+  uint64_t	vaddr;		/* Segment virtual address */
+  uint64_t	paddr;		/* Segment physical address */
+  uint64_t	filesz;		/* Segment size in file */
+  uint64_t	memsz;		/* Segment size in memory */
+  uint64_t	align;		/* Segment alignment */
 };
 
-struct elf64_shdr 
+struct elf64_shdr
 {
-	uint32_t sh_name;
-	uint32_t sh_type;
-	uint64_t sh_flags;
-	uint64_t sh_addr;
-	uint64_t sh_offset;
-	uint64_t sh_size;
-	uint32_t sh_link;
-	uint32_t sh_info;
-	uint64_t sh_addralign;
-	uint64_t sh_entsize;
-};
-
-struct elf32_shdr 
-{
-	uint32_t sh_name;
-	uint32_t sh_type;
-	uint32_t sh_flags;
-	uint32_t sh_addr;
-	uint32_t sh_offset;
-	uint32_t sh_size;
-	uint32_t sh_link;
-	uint32_t sh_info;
-	uint32_t sh_addralign;
-	uint32_t sh_entsize;
+  uint32_t	name;		/* Section name (string tbl index) */
+  uint32_t	type;		/* Section type */
+  uint64_t	flags;	/* Section flags */
+  uint64_t	addr;		/* Section virtual addr at execution */
+  uint64_t	offset;	/* Section file offset */
+  uint64_t	size;		/* Section size in bytes */
+  uint32_t	link;		/* Link to another section */
+  uint32_t	info;		/* Additional section information */
+  uint64_t	addralign;	/* Section alignment */
+  uint64_t	entsize;		/* Entry size if section holds table */
 };
 
 struct elf64_sym 
@@ -108,12 +71,13 @@ struct elf64_sym
 
 struct elf_shdr_info
 {
+	uint32_t num;
 	uint32_t section_entry_size;
 	uint32_t str_section_idx;
-	uint32_t num;
 	uint32_t section_offset;
 };
 
-int elf_bits(uint8_t *elf);
+struct elf_shdr_info elf64_get_elf_shdr_info(uint8_t *elf);
+bool elf64_load_relocation(uint8_t *elf, uint64_t *entry_point, struct relocation_range **ranges);
 
 #endif // !__LIB_ELF_H__

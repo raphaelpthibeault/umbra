@@ -404,10 +404,6 @@ vbe_setup(struct fb_info *ret, uint16_t target_width, uint16_t target_height, ui
 	serial_print("%dx", best_vbe_mode_info.res_y);
 	serial_print("%d\n", best_vbe_mode_info.bpp);
 
-	serial_print("--- VBE Mode Info Dump for mode 0x%x ---\n", best_vbe_mode);
-	serial_print_buffer_hex(&best_vbe_mode_info, sizeof(best_vbe_mode_info));
-	serial_print("--- End VBE Dump ---\n");
-
 	ret->memory_model = best_vbe_mode_info.memory_model;
 	ret->framebuffer_addr = best_vbe_mode_info.framebuffer_addr;
 	ret->framebuffer_width = best_vbe_mode_info.res_x;

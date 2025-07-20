@@ -232,26 +232,25 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	}
 	else
 	{
+		uint64_t elf_entry;
+
 		serial_print("Multiboot2: No address tag found, proceeding with ELF loading.\n");
 
-		struct elf64_ehdr *ehdr = (struct elf64_ehdr *)(kernel);
-		if (ehdr->ident[EI_MAG0] != ELFMAG0
-				|| ehdr->ident[EI_MAG1] != ELFMAG1
-				|| ehdr->ident[EI_MAG2] != ELFMAG2
-				|| ehdr->ident[EI_MAG3] != ELFMAG3)
+		if (!elf64_load_relocation(kernel, &elf_entry, &ranges))
 		{
-			serial_print("ehdr->ident[0]: 0x%x\n", ehdr->ident[EI_MAG0]);
-			serial_print("ehdr->ident[1]: 0x%x\n", ehdr->ident[EI_MAG1]);
-			serial_print("ehdr->ident[2]: 0x%x\n", ehdr->ident[EI_MAG2]);
-			serial_print("ehdr->ident[3]: 0x%x\n", ehdr->ident[EI_MAG3]);
-			serial_print("[PANIC] Invalid ELF64 magic!\n");
+			serial_print("[PANIC] ELF load relocation failure\n");
 			while (1);
 		}
-		serial_print("Elf: Valid ELF64 magic\n");
 
+		shdr_info = elf64_get_elf_shdr_info(kernel);
+		shdr_info_valid = true;
 
-		serial_print("[PANIC] Multiboot2: Booting without giving address tag is currently unsupported\n");
-		while (1);
+		if (entry_point == 0xffffffff) 
+		{
+			entry_point = elf_entry;
+		}
+
+		serial_print("[INFO} Multiboot2: ELF entry (physical): 0x%x\n", entry_point);
 	}
 
 	int64_t reloc_slide = 0;
@@ -328,7 +327,6 @@ reloc_fail:
 	size_t modules_size = 0;
 	size_t n_modules = 0;
 
-
 	struct smbios_entry_point_32 *smbios_eps_32 = NULL;
 	struct smbios_entry_point_64 *smbios_eps_64 = NULL;
 
@@ -344,9 +342,20 @@ reloc_fail:
 		smbios_tag_size += sizeof(struct multiboot_tag_smbios) + smbios_eps_64->entry_point_length;
 	}
 
+	/* realloc relocation ranges to include mb2 info, modules, and elf sections */
+	struct relocation_range *new_ranges = ext_mem_alloc(sizeof(struct relocation_range) * 
+				(ranges_count 
+				 + 1 /* mb2 info range */
+				 + n_modules
+				 + (shdr_info_valid ? shdr_info.num : 0)));
+
+	memcpy(new_ranges, ranges, sizeof(struct relocation_range) * ranges_count);
+	memmap_free(ranges, sizeof(struct relocation_range) * ranges_count);
+	ranges = new_ranges;
+
 	/* TODO cmdline config option */
 	char *cmdline = "";
-	size_t mb2_info = get_mb2_info_size(
+	size_t mb2_info_size = get_mb2_info_size(
 			cmdline,
 			modules_size,
 			shdr_info_valid ? shdr_info.section_entry_size : 0,
@@ -355,8 +364,11 @@ reloc_fail:
 	);
 
 
-
 	memmap_free(kernel_path, strlen(kernel_path) + 1);
+
+	// terminal_deinit(); // done
+	// spinup();
+	//
 	while (1);
 	__builtin_unreachable();
 }

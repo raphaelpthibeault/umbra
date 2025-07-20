@@ -902,6 +902,9 @@ fail:
 	if (term_ctx == NULL) 
 		return false;
 
+	if (term_ctx->font_bits != NULL)
+		memmap_free(term_ctx->font_bits, term_ctx->font_bits_size);
+
 	if (term_ctx->font_bool != NULL)
 		memmap_free(term_ctx->font_bool, term_ctx->font_bool_size);
 
@@ -951,3 +954,18 @@ terminal_enable_cursor(void)
 {
 	term_ctx->cursor_enabled = true;
 }
+
+void
+terminal_deinit(void)
+{
+	if (term_ctx == NULL) 
+		return;
+
+	memmap_free(term_ctx->font_bits, term_ctx->font_bits_size);
+	memmap_free(term_ctx->font_bool, term_ctx->font_bool_size);
+	memmap_free(term_ctx->grid, term_ctx->grid_size);
+	memmap_free(term_ctx->queue, term_ctx->queue_size);
+	memmap_free(term_ctx->map, term_ctx->map_size);
+	memmap_free(term_ctx, sizeof(struct terminal_ctx));
+}
+

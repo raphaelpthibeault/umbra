@@ -85,6 +85,7 @@ void terminal_set_color(uint32_t fg, uint32_t bg);
 void terminal_clear(void);
 void terminal_disable_cursor(void);
 void terminal_enable_cursor(void);
+void terminal_deinit(void);
 
 extern struct terminal_ctx *term_ctx;
 

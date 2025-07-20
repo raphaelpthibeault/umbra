@@ -6,12 +6,12 @@ kernel_virtual_base = 0xffffffff80000000;
 
 SECTIONS
 {
+	/* linker trickery */
 	. = kernel_physical_base + kernel_virtual_base;
-
-	physical_start = .;
 
 	.text : AT(ADDR(.text) - kernel_virtual_base)
 	{
+		physical_start = ADDR(.text) - kernel_virtual_base;
 		*(.multiboot)
 		*(.bootstrap)
 		*(.text .text.*)
@@ -29,13 +29,10 @@ SECTIONS
 	
 	.bss : AT(ADDR(.bss) - kernel_virtual_base)
 	{
-		PROVIDE(bss_start = .);
+		bss_start = .;
 		*(COMMON)
 		*(.bss .bss.*)	
-		/* *(.stack) */
 	}
-
-	virtual_end = .;
 	physical_end = . - kernel_virtual_base;
 
 	/DISCARD/ : { *(.comment) }

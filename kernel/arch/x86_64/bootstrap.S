@@ -1,4 +1,5 @@
 /* bootstrap for the x86_64 kernel. Jumps to long mode and calls kmain */
+	#include <memory_references.h>
 
 	.section .multiboot
 	.code32
@@ -22,9 +23,9 @@ multiboot2_tag_address:
 	.word 2
 	.word 0
 	.long 24
-	.long multiboot2_header # header address
+	.long V2P(multiboot2_header) # header address
 	.long physical_start		# load address
-	.long bss_start					# load end address
+	.long V2P(bss_start)		# load end address
 	.long physical_end			# bss end address
 
 	.align 8
@@ -32,17 +33,7 @@ multiboot2_tag_entry_address:
 	.word 3
 	.word 0
 	.long 12
-	.long start_multiboot2
-	*/
-
-	.align 8
-multiboot2_tag_framebuffer:
-	.word 5
-	.word 0
-	.long 20
-	.long 0 # width = 0, let bootloader decide
-	.long 0 # height = 0, let bootloader decide
-	.long 0 # depth = 0, let bootloader decide
+	.long V2P(start)
 
 	.align 8
 multiboot2_tag_relocatable:
@@ -53,6 +44,16 @@ multiboot2_tag_relocatable:
 	.long 0x1000000 # Maximum load address
 	.long 4096      # Request page alignment
 	.long 1         # Load at lowest available
+	*/
+
+	.align 8
+multiboot2_tag_framebuffer:
+	.word 5
+	.word 0
+	.long 20
+	.long 0 # width = 0, let bootloader decide
+	.long 0 # height = 0, let bootloader decide
+	.long 0 # depth = 0, let bootloader decide
 
 # end tag
 	.align 8
@@ -67,18 +68,10 @@ multiboot2_header_end:
 	.align 4
 	.globl start
 start:
-	#movl %ebx, %ecx
-	#addl $16, %ecx # use boot_drive to thunk eip
 	movl %edi, %ebx
 	movl %esi, %eax
 
-	#popl %ecx
-	#subl $forward, %ecx
 	# TODO setup stack
-	#movl $stack_top, %esp
-	#addl %ecx, %esp
-	# 'assert stack is 16-byte aligned
-	#and $-16, %esp
 
 	jmp jmp_to_long
 
@@ -86,8 +79,8 @@ start:
 jmp_to_long:
 	jmp jmp_to_long
 
-
 .section .bss
+	.align 16
 stack_bottom:
 	.skip 16384 /* 16KiB */
 	.global stack_top
