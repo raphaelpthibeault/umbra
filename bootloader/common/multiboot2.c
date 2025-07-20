@@ -88,7 +88,8 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	}
 	size_t kernel_file_size = kernel_file->size;
 	fclose(kernel_file);
- 
+	memmap_free(kernel_path, strlen(kernel_path) + 1);
+
 	serial_print("Multiboot2: Read kernel into memory, file size 0x%x\n", kernel_file_size);
 
 	struct multiboot_header *header = find_header(kernel, kernel_file_size < MULTIBOOT_SEARCH ? kernel_file_size : MULTIBOOT_SEARCH);
@@ -363,8 +364,20 @@ reloc_fail:
 			smbios_tag_size
 	);
 
+	/* from what I can tell, GRUB allocates boot info at 0x10000, so let's yoink that idea */
+	/* append mb2 info after kernel but before modules */
+	uint8_t *mb2_info = ext_mem_alloc(mb2_info_size);
+	uint64_t mb2_info_final_loc = 0x10000;
+	//bool relocation_append(struct relocation_range *ranges, uint64_t *ranges_count, void *relocation, uint64_t *target, size_t length);
+	if (!relocation_append(ranges, &ranges_count, mb2_info, &mb2_info_final_loc, mb2_info_size))
+	{
+		serial_print("[PANIC] Could not allocate mb2 info!\n");	
+		while (1);
+	}
 
-	memmap_free(kernel_path, strlen(kernel_path) + 1);
+	serial_print("[DEBUG] ranges_count: 0x%x\n", ranges_count); // should be 2
+	serial_print("[DEBUG] mb2_info_final_loc: 0x%x\n", mb2_info_final_loc);
+
 
 	// terminal_deinit(); // done
 	// spinup();
