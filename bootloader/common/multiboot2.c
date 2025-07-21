@@ -3,6 +3,7 @@
 #include <common/uri.h>
 #include <common/relocation.h>
 #include <common/acpi.h>
+#include <common/terminal.h>
 #include <lib/misc.h>
 #include <lib/elf.h>
 #include <types.h>
@@ -14,6 +15,10 @@
 #define UMBRA_BRAND "Umbra" // should probably add a version
 #define MEMMAP_MAX 256
 #define DHCP_ACK_PACKET_LEN 296 /* I won't support PXE boot but maybe? Anyways place it here for the network tag info */
+
+#define append_tag(P, TAG) do { \
+    (P) += ALIGN_UP((TAG)->size, MULTIBOOT_TAG_ALIGN); \
+} while (0)
 
 static size_t
 get_mb2_info_size(
@@ -106,6 +111,10 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	bool has_reloc_header = false;
 	struct multiboot_header_tag_relocatable reloc_tag = {0};
 	
+	bool is_new_acpi_required = false;
+	bool is_old_acpi_required = false;
+	bool is_elf_info_requested = false;
+
 	for (struct multiboot_header_tag *tag = (struct multiboot_header_tag *)(header + 1);
 			tag < (struct multiboot_header_tag *)((uintptr_t)header + header->header_length) && tag->type != MULTIBOOT_HEADER_TAG_END;
 			tag = (struct multiboot_header_tag *)((uintptr_t)tag + ALIGN_UP(tag->size, MULTIBOOT_TAG_ALIGN)))
@@ -142,7 +151,31 @@ multiboot2_load(disk_t *boot_disk, char *config)
 			}
 			case MULTIBOOT_HEADER_TAG_INFORMATION_REQUEST:
 			{
-				serial_print("[WARNING] Info Requests currently unsupported\n");
+				struct multiboot_header_tag_information_request *request = (void *)tag;
+				uint32_t size = (request->size - sizeof(struct multiboot_header_tag_information_request)) / sizeof(uint32_t);
+
+				for (uint32_t i = 0; i < size; ++i)
+				{
+					uint32_t req = request->requests[i];
+					switch (req)
+					{
+						case MULTIBOOT_TAG_TYPE_ACPI_NEW:
+							is_new_acpi_required = is_required;
+							break;
+						case MULTIBOOT_TAG_TYPE_ACPI_OLD:
+							is_old_acpi_required = is_required;
+							break;
+						case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
+							is_elf_info_requested = is_required;
+							break;
+						default:
+							if (is_required)
+							{
+								serial_print("[PANIC] Multiboot2: Requested unsupported tag %d\n", req);	
+								while (1);
+							}
+					}
+				}
 				break;
 			}
 			default:
@@ -368,7 +401,6 @@ reloc_fail:
 	/* append mb2 info after kernel but before modules */
 	uint8_t *mb2_info = ext_mem_alloc(mb2_info_size);
 	uint64_t mb2_info_final_loc = 0x10000;
-	//bool relocation_append(struct relocation_range *ranges, uint64_t *ranges_count, void *relocation, uint64_t *target, size_t length);
 	if (!relocation_append(ranges, &ranges_count, mb2_info, &mb2_info_final_loc, mb2_info_size))
 	{
 		serial_print("[PANIC] Could not allocate mb2 info!\n");	
@@ -378,10 +410,98 @@ reloc_fail:
 	serial_print("[DEBUG] ranges_count: 0x%x\n", ranges_count); // should be 2
 	serial_print("[DEBUG] mb2_info_final_loc: 0x%x\n", mb2_info_final_loc);
 
+	size_t mbi_idx = 0;
+	struct multiboot2_start_tag *mbi_start = (struct multiboot2_start_tag *)(mb2_info);
+	mbi_idx += sizeof(struct multiboot2_start_tag);
 
-	// terminal_deinit(); // done
-	// spinup();
-	//
+	/* ELF info tag */
+	if (!shdr_info_valid)
+	{
+		if (is_elf_info_requested)
+		{
+			serial_print("[PANIC] Multiboot2: Requested ELF info, but has invalid ELF section header!\n");
+		}
+	}
+	else
+	{
+		struct multiboot_tag_elf_sections *tag = (struct multiboot_tag_elf_sections*)(mb2_info + mbi_idx);
+
+		tag->type = MULTIBOOT_TAG_TYPE_ELF_SECTIONS;
+		tag->size = sizeof(struct multiboot_tag_elf_sections) + shdr_info.section_entry_size * shdr_info.num;
+		tag->num = shdr_info.num;
+		tag->entsize = shdr_info.section_entry_size;
+		tag->shndx = shdr_info.str_section_idx;
+
+		memcpy(tag->sections, kernel + shdr_info.section_offset, shdr_info.section_entry_size * shdr_info.num);
+
+		for (size_t i = 0; i < shdr_info.num; ++i)
+		{
+			struct elf64_shdr *shdr = (void *)tag->sections + i * shdr_info.section_entry_size;
+
+			if (shdr->addr != 0 || shdr->size == 0)
+			{
+				continue;
+			}
+
+			uint64_t section = (uint64_t)-1; /* specify no target preference (go top-down) */
+			if (!relocation_append(ranges, &ranges_count, kernel + shdr->offset, &section, shdr->size))
+			{
+				serial_print("[PANIC] Could not allocate ELF info!\n");	
+				while (1);
+			}
+
+			shdr->addr = section;
+		}
+
+		append_tag(mbi_idx, tag);
+	}
+	serial_print("[DEBUG] appended ELF tag maybe?\n");	
+
+	/* load base address tag */
+	if (has_reloc_header)
+	{
+		struct multiboot_tag_load_base_addr *tag = (void *)(mb2_info + mbi_idx);
+
+		tag->type = MULTIBOOT_TAG_TYPE_LOAD_BASE_ADDR;
+		tag->size = sizeof(struct multiboot_tag_load_base_addr);
+		tag->load_base_addr = load_base_addr;
+
+		append_tag(mbi_idx, tag);
+	}
+	serial_print("[DEBUG] appended load base address tag maybe?\n");	
+
+	/* TODO modules tag */
+	/* TODO command line tag */
+	/* TODO bootloader name tag */
+	/* >>> TODO framebuffer tag */
+	// if already given it, check if fields are zero. If fields are zero, populate them
+	terminal_deinit(); // done
+	/* TODO new ACPI info tag */
+	/* TODO old ACPI info tag */
+	/* TODO SMBIOS tag */
+	/* relocation stub ? */
+	/* >>> TODO memory map tag */
+	/* >>> TODO basic memory info tag */
+	/* TODO network info tag */
+	
+	/* end tag */
+	{
+		struct multiboot_tag *end_tag = (struct multiboot_tag *)(mb2_info + mbi_idx);
+
+		end_tag->type = MULTIBOOT_TAG_TYPE_END;
+		end_tag->size = sizeof(struct multiboot_tag);
+
+		append_tag(mbi_idx, end_tag);
+	}
+	serial_print("[DEBUG] appended end tag maybe?\n");	
+
+	/* all tags done */
+	mbi_start->size = mbi_idx;
+	mbi_start->reserved = 0x00;
+
+	/* TODO IRQ flush PIC */
+	/* TODO spinup(); */
+
 	while (1);
 	__builtin_unreachable();
 }
