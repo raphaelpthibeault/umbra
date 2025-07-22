@@ -1,4 +1,5 @@
 #include <common/config.h>
+#include <common/panic.h>
 #include <types.h>
 #include <fs/file.h>
 #include <mm/pmm.h>
@@ -112,8 +113,7 @@ is_directory(char *buf, size_t limit, size_t curr_depth, size_t index)
 		case NOT_CHILD:
 			return false;
 		case INDIRECT_CHILD:
-			serial_print("[PANIC] bad config: parentless child\n");
-			while (1);
+			panic("bad config: parentless child");
 		case DIRECT_CHILD:
 			return true;
 	}

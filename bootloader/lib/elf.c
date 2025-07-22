@@ -3,6 +3,7 @@
 #include <types.h>
 #include <drivers/serial.h>
 #include <mm/pmm.h>
+#include <common/panic.h>
 
 #define ARCH_X86_64  0x3e
 #define ARCH_X86_32  0x03
@@ -29,12 +30,12 @@ elf64_validate(struct elf64_ehdr *ehdr)
 		serial_print("ehdr->ident[1]: 0x%x\n", ehdr->ident[EI_MAG1]);
 		serial_print("ehdr->ident[2]: 0x%x\n", ehdr->ident[EI_MAG2]);
 		serial_print("ehdr->ident[3]: 0x%x\n", ehdr->ident[EI_MAG3]);
-		serial_print("[PANIC] ELF: Invalid ELF64 magic!\n");
+		serial_print("[WARNING] ELF: Invalid ELF64 magic!\n");
 		return false;
 	}
 	if (ehdr->machine != ARCH_X86_64)
 	{
-		serial_print("[PANIC] ELF: Machine not x86_64!\n");
+		serial_print("[WARNING] ELF: Machine not x86_64!\n");
 		return false;
 	}
 
@@ -50,8 +51,7 @@ elf64_get_elf_shdr_info(uint8_t *elf)
 
 	if (!elf64_validate(ehdr))
 	{
-		serial_print("[PANIC] elf64_validate failure\n");
-		while (1);
+		panic("elf64_validate() failure in elf64_get_elf_shdr_info()!");
 	}
 
 	info.num = ehdr->shnum;
@@ -70,13 +70,11 @@ elf64_load_relocation(uint8_t *elf, uint64_t *entry_point, struct relocation_ran
 
 		if (!elf64_validate(ehdr))
 		{
-			serial_print("[PANIC] elf64_validate failure\n");
-			while (1);
+			panic("elf64_validate() failure in elf64_load_relocation()!");
 		}
 		if (ehdr->type != ET_EXEC && ehdr->type != ET_DYN)
 		{
-			serial_print("[PANIC] ELF: ELF file not EXEC or DYN!\n");
-			return false;
+			panic("ELF: ELF file not EXEC or DYN!");
 		}
 
 		*entry_point = ehdr->entry; // VMA!
@@ -84,8 +82,7 @@ elf64_load_relocation(uint8_t *elf, uint64_t *entry_point, struct relocation_ran
 
 		if (ehdr->phentsize < sizeof(struct elf64_phdr))
 		{
-			serial_print("[PANIC] ELF: Program header table entry size < sizeof(struct elf64_phdr)!\n");
-			while (1);
+			panic("ELF: Program header table entry size < sizeof(struct elf64_phdr)!");
 		}
 
 		size_t image_size;

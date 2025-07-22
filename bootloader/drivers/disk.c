@@ -4,11 +4,10 @@
 #include <lib/misc.h>
 #include <mm/pmm.h>
 #include <lib/partition.h>
+#include <common/panic.h>
 
 #include <arch/x86_64/real.h>
 #include <arch/x86_64/cpu.h>
-
-#include <drivers/serial.h>
 
 #define READ 0
 #define WRITE 1
@@ -89,8 +88,7 @@ disk_rw(int cmd, disk_t *disk, uint64_t start_sector, size_t total_bytes, size_t
 	dap->block = start_sector;
 
 	if (disk_rw_int13(cmd + 0x42, disk->data->drive, dap)) {
-		putstr("[PANIC] Couldn't read\n", COLOR_RED, COLOR_BLK);
-		while (1);
+		panic("disk_rw failure(): Couldn't read/write from disk!");
 	}
 }
 
@@ -174,8 +172,7 @@ disk_create_index(void)
 	uint8_t consumed_bda_hdds = 0;
 
 	if (bda_hdd_count == 0) {
-		putstr("[PANIC] what\n", COLOR_RED, COLOR_BLK);
-		while (1);
+		panic("bda_hdd_count == 0");
 	}
 
 	/* there can be several physical mediums: CDs, optical disks, floppies, etc
@@ -217,8 +214,7 @@ disk_create_index(void)
 		rm_int(0x13, &regs);
 
 		if (regs.flags & 1) {
-			putstr("[PANIC] what\n", COLOR_RED, COLOR_BLK);
-			while (1);
+			panic("rm_int() error in disk_create_index with INT13h, AH=48h");
 		}
 
 		disk->total_sectors = drp->lba_count;
@@ -252,13 +248,11 @@ disk_create_index(void)
 			++disk_list_idx;
 		}
 		if (dp == NULL) {
-			putstr("[PANIC] disk pointer shenanigans error\n", COLOR_RED, COLOR_BLK);
-			while (1);
+			panic("disk pointer shenanigans error");
 		}
 		
 		if(partitions_get(dp) != END_OF_TABLE) {
-			putstr("[PANIC] partitions_get() returned 0 partitions\n", COLOR_RED, COLOR_BLK);
-			while (1);
+			panic("partitions_get() returned 0 partitions");
 		}
 
 		++consumed_bda_hdds;

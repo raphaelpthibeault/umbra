@@ -751,9 +751,6 @@ terminal_init(void)
   uint32_t default_bg = 0x00000000; // background (black)
 	uint32_t default_fg = 0x00aaaaaa; // foreground (grey)
 
-  //uint32_t default_bg_bright = 0x00555555; // background (black)
-  //uint32_t default_fg_bright = 0x00ffffff; // foreground (grey)
-
 	size_t font_width = 8;
 	size_t font_height = 16;
 	size_t font_size = (font_width * font_height * 256) / 8;

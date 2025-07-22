@@ -1,13 +1,14 @@
-#include "boot_menu.h"
+#include <common/boot_menu.h>
+#include <common/terminal.h>
+#include <common/config.h>
+#include <common/boot.h>
+#include <common/panic.h>
 #include <types.h>
 #include <drivers/vga.h>
 #include <drivers/serial.h>
 #include <drivers/disk.h>
 #include <lib/misc.h>
 #include <mm/pmm.h>
-#include <common/terminal.h>
-#include <common/config.h>
-#include <common/boot.h>
 #include <arch/x86_64/kbd.h>
 
 static size_t
@@ -95,8 +96,7 @@ _boot_menu(uint8_t drive)
 
 	if (!terminal_init())
 	{
-		serial_print("[PANIC] error initializating terminal\n");
-		while (1);
+		panic("error initializating terminal");
 	}
 	terminal_disable_cursor(); /* before printing anything to screen */
 
@@ -110,21 +110,18 @@ _boot_menu(uint8_t drive)
 	disk_t *boot_disk;
 	boot_disk = disk_get_by_drive(drive);
 	if (boot_disk == NULL) {
-		serial_print("[PANIC] Could not get boot disk!\n");
-		while (1);
+		panic("could not get boot disk!");
 	}
 
 	if (config_init_disk(boot_disk) < 0)
 	{
-		serial_print("[PANIC] Could not init config\n");
-		while (1);
+		panic("could not init config");
 	}
 	serial_print("Config: Initialized from disk\n");
 
 	if (menu_tree == NULL)
 	{
-		serial_print("[PANIC] the fuck? menu tree is null\n");
-		while (1);
+		panic("menu tree is null");
 	}
 
 	size_t x, top;
@@ -136,8 +133,7 @@ _boot_menu(uint8_t drive)
 	size_t max_entries = print_tree(menu_tree, 0, term_ctx->rows - 8, 0, 0, selected_entry, &selected_menu_entry);
 	if (max_entries == 0 || selected_menu_entry == NULL)
 	{
-		serial_print("[PANIC] Boot Menu: Invalid configuration, no valid menu entries!\n");
-		while (1);
+		panic("Boot Menu: Invalid configuration, no valid menu entries!\n");
 	}
 
 	char c;

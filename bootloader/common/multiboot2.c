@@ -4,8 +4,10 @@
 #include <common/relocation.h>
 #include <common/acpi.h>
 #include <common/terminal.h>
+#include <common/panic.h>
 #include <lib/misc.h>
 #include <lib/elf.h>
+#include <lib/framebuffer.h>
 #include <types.h>
 #include <fs/file.h>
 #include <drivers/disk.h>
@@ -73,23 +75,20 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	kernel_path = config_get_value(config, 0, "PATH");
 	if (kernel_path == NULL)
 	{
-		serial_print("[PANIC] Invalid configuration, no kernel path found\n");
-		while (1);
+		panic("Invalid configuration, no kernel path found");
 	}
 	serial_print("Multiboot2: Config kernel path: '%s' \n", kernel_path);
 
 	if ((kernel_file = uri_open(boot_disk, kernel_path)) == NULL)
 	{
-		serial_print("[PANIC] kernel file is null / not found\n");
-		while (1);
+		panic("kernel file is null / not found");
 	}
 	serial_print("Multiboot2: Found executable: '%s'\n", kernel_path);
 
 	void *kernel = freadall(kernel_file, MEMMAP_KERNEL_AND_MODULES);
 	if (kernel == NULL)
 	{
-		serial_print("[PANIC] could not read kernel\n");
-		while (1);
+		panic("could not read kernel");
 	}
 	size_t kernel_file_size = kernel_file->size;
 	fclose(kernel_file);
@@ -100,8 +99,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	struct multiboot_header *header = find_header(kernel, kernel_file_size < MULTIBOOT_SEARCH ? kernel_file_size : MULTIBOOT_SEARCH);
 	if (header == NULL)
 	{
-		serial_print("[PANIC] Multiboot2: Could not find the multiboot2 header!\n");
-		while (1);
+		panic("Multiboot2: Could not find the multiboot2 header!");
 	}
 	serial_print("Multiboot2: Valid multiboot2 header\n");
 	
@@ -171,8 +169,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 						default:
 							if (is_required)
 							{
-								serial_print("[PANIC] Multiboot2: Requested unsupported tag %d\n", req);	
-								while (1);
+								panic("Multiboot2: Requested unsupported tag %d", req);	
 							}
 					}
 				}
@@ -182,8 +179,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 			{
 				if (is_required)
 				{
-					serial_print("[PANIC] Multiboot2: Unknown header tag!\n");
-					while (1);
+					panic("Multiboot2: Unknown header tag!");
 				}
 				else
 				{
@@ -211,8 +207,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 		{
 			if (address_tag->load_addr > address_tag->header_addr)
 			{
-				serial_print("[PANIC] Multiboot2: Illegal load address!\n");
-				while (1);
+				panic("Multiboot2: Illegal load address!");
 			}
 
 			load_src = header_offset - (address_tag->header_addr - address_tag->load_addr);
@@ -238,8 +233,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 			uintptr_t bss_addr = load_addr + load_size;
 			if (address_tag->bss_end_addr < bss_addr)
 			{
-				serial_print("[PANIC] Multiboot2: Illegal bss end address!\n");
-				while (1);
+				panic("Multiboot2: Illegal bss end address!");
 			}
 
 			bss_size = address_tag->bss_end_addr - bss_addr;
@@ -251,8 +245,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 
 		if (entry_point == 0xffffffff) 
 		{
-			serial_print("[PANIC] Multiboot2: Using address tag with non-specified entry tag!\n");
-			while (1);
+			panic("Multiboot2: Using address tag with non-specified entry tag!");
 		}
 
 		ranges = ext_mem_alloc(sizeof(struct relocation_range));
@@ -272,8 +265,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 
 		if (!elf64_load_relocation(kernel, &elf_entry, &ranges))
 		{
-			serial_print("[PANIC] ELF load relocation failure\n");
-			while (1);
+			panic("ELF load relocation failure");
 		}
 
 		shdr_info = elf64_get_elf_shdr_info(kernel);
@@ -284,7 +276,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 			entry_point = elf_entry;
 		}
 
-		serial_print("[INFO} Multiboot2: ELF entry (physical): 0x%x\n", entry_point);
+		serial_print("[INFO] Multiboot2: ELF entry (physical): 0x%x\n", entry_point);
 	}
 
 	int64_t reloc_slide = 0;
@@ -308,7 +300,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 			/* prefer loading at highest available (will not support this) */
 			default:
 			case 2:
-				serial_print("[PANIC] Multiboot2: Relocations with preferred loading at highest available is unsupported\n");
+				panic("Multiboot2: Relocations with preferred loading at highest available is unsupported");
 				while (1);
 		}
 
@@ -347,7 +339,7 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	if (!check_usable_memory(ranges->target, ranges->target + ranges->length))
 	{
 reloc_fail:
-		serial_print("[PANIC] Multiboot2: Relocation failed, could not find suitable address\n");
+		panic("Multiboot2: Relocation failed, could not find suitable address");
 		while (1);
 	}
 	else
@@ -403,8 +395,7 @@ reloc_fail:
 	uint64_t mb2_info_final_loc = 0x10000;
 	if (!relocation_append(ranges, &ranges_count, mb2_info, &mb2_info_final_loc, mb2_info_size))
 	{
-		serial_print("[PANIC] Could not allocate mb2 info!\n");	
-		while (1);
+		panic("Could not allocate mb2 info!");	
 	}
 
 	serial_print("[DEBUG] ranges_count: 0x%x\n", ranges_count); // should be 2
@@ -419,7 +410,7 @@ reloc_fail:
 	{
 		if (is_elf_info_requested)
 		{
-			serial_print("[PANIC] Multiboot2: Requested ELF info, but has invalid ELF section header!\n");
+			panic("Multiboot2: Requested ELF info, but has invalid ELF section header!");
 		}
 	}
 	else
@@ -446,8 +437,7 @@ reloc_fail:
 			uint64_t section = (uint64_t)-1; /* specify no target preference (go top-down) */
 			if (!relocation_append(ranges, &ranges_count, kernel + shdr->offset, &section, shdr->size))
 			{
-				serial_print("[PANIC] Could not allocate ELF info!\n");	
-				while (1);
+				panic("Could not allocate ELF info!");	
 			}
 
 			shdr->addr = section;
@@ -460,7 +450,7 @@ reloc_fail:
 	/* load base address tag */
 	if (has_reloc_header)
 	{
-		struct multiboot_tag_load_base_addr *tag = (void *)(mb2_info + mbi_idx);
+		struct multiboot_tag_load_base_addr *tag = (struct multiboot_tag_load_base_addr *)(mb2_info + mbi_idx);
 
 		tag->type = MULTIBOOT_TAG_TYPE_LOAD_BASE_ADDR;
 		tag->size = sizeof(struct multiboot_tag_load_base_addr);
@@ -471,17 +461,75 @@ reloc_fail:
 	serial_print("[DEBUG] appended load base address tag maybe?\n");	
 
 	/* TODO modules tag */
+
 	/* TODO command line tag */
+
 	/* TODO bootloader name tag */
-	/* >>> TODO framebuffer tag */
-	// if already given it, check if fields are zero. If fields are zero, populate them
-	terminal_deinit(); // done
+
+	{
+		terminal_deinit();
+		struct multiboot_tag_framebuffer *tag = (struct multiboot_tag_framebuffer *)(mb2_info + mbi_idx);	
+
+		tag->common.type = MULTIBOOT_TAG_TYPE_FRAMEBUFFER;
+		tag->common.size = sizeof(struct multiboot_tag_framebuffer);
+
+		if (fb_tag == NULL)
+		{
+			/* TODO text mode */
+			panic("Multiboot2: Non-framebuffer boot is currently unsupprted!");
+		}
+
+		size_t req_width = 0, req_height = 0, req_bpp = 0;
+		struct fb_info *fb = NULL; 
+		size_t fb_count = 0;
+		
+		req_width = fb_tag->width;
+		req_height = fb_tag->height;
+		req_bpp = fb_tag->depth;
+
+		if (req_width == 0 || req_height == 0 || req_bpp == 0)
+		{
+			serial_print("[DEBUG] [WARNING] Gave a framebuffer tag but with zeroed property(ies). The bootloader will decide framebuffer.\n");
+		}
+
+		fb = fb_init(&fb_count, req_width, req_height, req_bpp);
+
+		if (fb == NULL || fb_count == 0) 
+		{
+			/* TODO: maybe set text mode here instead of panicking? */
+			panic("Multiboot2: Failed to set video mode!");
+		}
+
+		tag->common.framebuffer_addr = fb->framebuffer_addr;
+		tag->common.framebuffer_pitch = fb->framebuffer_pitch;
+		tag->common.framebuffer_width = fb->framebuffer_width;
+		tag->common.framebuffer_height = fb->framebuffer_height;
+		tag->common.framebuffer_bpp = fb->framebuffer_bpp;
+		tag->common.framebuffer_type = MULTIBOOT_FRAMEBUFFER_TYPE_RGB; // I only supported RGB for VBE
+
+		tag->framebuffer_red_field_position = fb->red_mask_shift;
+		tag->framebuffer_red_mask_size = fb->red_mask_size;
+		tag->framebuffer_green_field_position = fb->green_mask_shift;
+		tag->framebuffer_green_mask_size = fb->green_mask_size;
+		tag->framebuffer_blue_field_position = fb->blue_mask_shift;
+		tag->framebuffer_blue_mask_size = fb->blue_mask_size;
+
+		append_tag(mbi_idx, &tag->common);
+	}
+	serial_print("[DEBUG] appended framebuffer tag maybe?\n");	
+
 	/* TODO new ACPI info tag */
+
 	/* TODO old ACPI info tag */
+
 	/* TODO SMBIOS tag */
-	/* relocation stub ? */
+
+	/* TODO relocation stub ? */
+
 	/* >>> TODO memory map tag */
+
 	/* >>> TODO basic memory info tag */
+
 	/* TODO network info tag */
 	
 	/* end tag */

@@ -1,4 +1,5 @@
 #include <common/uri.h>
+#include <common/panic.h>
 #include <fs/file.h>
 #include <lib/misc.h>
 #include <lib/partition.h>
@@ -87,8 +88,7 @@ uri_open(disk_t *boot_disk, char *uri)
 		kernel_file = uri_dispatch_boot(boot_disk, path);
 	else
 	{
-		serial_print("[PANIC] unsupported resource\n");
-		while (1);
+		panic("unsupported resource\n");
 	}
 
 	return kernel_file;
