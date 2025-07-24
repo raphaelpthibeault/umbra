@@ -562,24 +562,8 @@ reloc_fail:
 
 		append_tag(mbi_idx, mmap_tag);
 	}
-	serial_print("[DEBUG] appended (raw) memory map tag maybe?\n");	
 
-	/* basic memory info tag */
-	{
-		// get_mmap_info(size_t mmap_count, struct memmap_entry *mmap);
-		struct memory_info meminfo = get_mmap_info(mb_mmap_count, raw_memmap); 
-		struct multiboot_tag_basic_meminfo *tag = (struct multiboot_tag_basic_meminfo *)(mb2_info + mbi_idx);
-
-		tag->type = MULTIBOOT_TAG_TYPE_BASIC_MEMINFO;
-		tag->size = sizeof(struct multiboot_tag_basic_meminfo);
-		
-		/* convert fields from bytes to KiB*/
-		tag->mem_upper = (uint32_t)(meminfo.upper_memory / 1024);
-		tag->mem_lower = (uint32_t)(meminfo.lower_memory / 1024);
-
-		append_tag(mbi_idx, tag);
-	}
-	serial_print("[DEBUG] appended basic memory information tag maybe?\n");	
+	/* >>> TODO basic memory info tag */
 
 	/* TODO network info tag */
 	

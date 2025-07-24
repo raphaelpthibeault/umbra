@@ -28,11 +28,20 @@
     ALIGN_DOWN_value; \
 })
 
-struct memmap_entry {
+#define MAX_MEMMAP_ENTRIES 256
+
+struct memmap_entry 
+{
 	uint64_t base;
 	uint64_t length;
 	uint32_t type;
 	uint32_t acpi;
+};
+
+struct memory_info
+{
+	size_t upper_memory;	
+	size_t lower_memory;
 };
 
 extern char _bss_start[];
@@ -51,5 +60,7 @@ void *ext_mem_alloc(size_t count);
 void *ext_mem_alloc_aligned(size_t count, uint32_t type, size_t alignment, bool allow_high_alloc);
 
 bool check_usable_memory(uint64_t base, uint64_t top);
+struct memmap_entry *get_raw_memmap(size_t *entry_count);
+struct memory_info get_mmap_info(size_t mmap_count, struct memmap_entry *mmap);
 
 #endif // !__PMM_H__

@@ -516,3 +516,47 @@ check_usable_memory(uint64_t base, uint64_t top)
 
 	return false;
 }
+
+struct memmap_entry *
+get_raw_memmap(size_t *entry_count)
+{
+	*entry_count = e820_entries;	
+	return e820_map;
+}
+
+struct memory_info
+get_mmap_info(size_t mmap_count, struct memmap_entry *mmap)
+{
+	struct memory_info meminfo = {0};
+
+	for (size_t i = 0; i < mmap_count; ++i)
+	{
+		if (memmap[i].type == MEMMAP_USABLE)
+		{
+			/* NOTE: Upper memory starts at 1 MiB and the value of upper_memory is the address
+			 * of the first "hole" minus 1 MiB */
+
+			if (mmap[i].base < 0x100000)
+			{
+				if (mmap[i].base + mmap[i].length > 0x100000)
+				{
+					size_t low_len = 0x100000 - mmap[i].base;	
+
+					meminfo.lower_memory += low_len;
+					meminfo.upper_memory += mmap[i].length - low_len;
+				}
+				else
+				{
+					meminfo.lower_memory += mmap[i].length;	
+				}
+			}
+			else
+			{
+				meminfo.upper_memory += mmap[i].length;	
+			}
+		}
+	}
+
+	return meminfo;
+}
+
