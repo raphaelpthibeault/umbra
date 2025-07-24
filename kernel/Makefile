@@ -22,7 +22,7 @@ ifeq ($(ARCH),x86_64)
         -m64
 endif
 
-KERNEL_ASM_SOURCES= arch/$(ARCH)/bootstrap.S
+KERNEL_ASM_SOURCES= arch/$(ARCH)/bootstrap.S arch/$(ARCH)/bootstrap64.S
 KERNEL_C_SOURCES	= arch/$(ARCH)/main.c 
 
 KERNEL_ASM_OBJS := $(KERNEL_ASM_SOURCES:.S=.S.o)
