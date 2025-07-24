@@ -427,4 +427,7 @@ struct multiboot2_start_tag
 
 noreturn void multiboot2_load(disk_t *boot_disk, char *config);
 
+extern char multiboot_spinup[];
+extern char multiboot_reloc_stub[], multiboot_reloc_stub_end[];
+
 #endif // !__MULTIBOOT2_H__

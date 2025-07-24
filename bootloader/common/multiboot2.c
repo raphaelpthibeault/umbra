@@ -5,6 +5,7 @@
 #include <common/acpi.h>
 #include <common/terminal.h>
 #include <common/panic.h>
+#include <common/spinup.h>
 #include <lib/misc.h>
 #include <lib/elf.h>
 #include <lib/framebuffer.h>
@@ -490,9 +491,12 @@ reloc_fail:
 		if (req_width == 0 || req_height == 0 || req_bpp == 0)
 		{
 			serial_print("[DEBUG] [WARNING] Gave a framebuffer tag but with zeroed property(ies). The bootloader will decide framebuffer.\n");
+			fb = fb_init(&fb_count, 0, 0, 0); /* don't use the variables obviously since there might be bad input in the multiboot header */
 		}
-
-		fb = fb_init(&fb_count, req_width, req_height, req_bpp);
+		else
+		{
+			fb = fb_init(&fb_count, req_width, req_height, req_bpp);
+		}
 
 		if (fb == NULL || fb_count == 0) 
 		{
@@ -525,8 +529,14 @@ reloc_fail:
 	/* TODO SMBIOS tag */
 
 	/* TODO relocation stub ? */
+	size_t reloc_stub_size = (size_t)multiboot_reloc_stub_end - (size_t)multiboot_reloc_stub;
+	void *reloc_stub = ext_mem_alloc(reloc_stub_size);
+	memcpy(reloc_stub, multiboot_reloc_stub, reloc_stub_size);
 
 	/* >>> TODO memory map tag */
+	{
+		
+	}
 
 	/* >>> TODO basic memory info tag */
 
@@ -547,8 +557,14 @@ reloc_fail:
 	mbi_start->size = mbi_idx;
 	mbi_start->reserved = 0x00;
 
-	/* TODO IRQ flush PIC */
-	/* TODO spinup(); */
+	serial_print("[DEBUG] multiboot_spinup 0x%x\n", (uintptr_t)multiboot_spinup);
+	serial_print("[DEBUG] reloc_stub 0x%x\n", (uint32_t)(uintptr_t)reloc_stub);
+	serial_print("[DEBUG] entry_point 0x%x\n", (uint32_t)entry_point);
+
+	spinup(multiboot_spinup, 6,
+			(uint32_t)(uintptr_t)reloc_stub, (uint32_t)0x36d76289,
+			(uint32_t)mb2_info_final_loc, (uint32_t)entry_point,
+			(uint32_t)(uintptr_t)ranges, (uint32_t)ranges_count);
 
 	while (1);
 	__builtin_unreachable();

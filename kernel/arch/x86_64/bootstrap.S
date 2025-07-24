@@ -72,6 +72,7 @@ start:
 	movl %esi, %eax
 
 	# TODO setup stack
+	movl V2P(stack_top), %esp
 
 	jmp jmp_to_long
 
@@ -83,6 +84,6 @@ jmp_to_long:
 	.align 16
 stack_bottom:
 	.skip 16384 /* 16KiB */
-	.global stack_top
+	.globl stack_top
 stack_top:
 
