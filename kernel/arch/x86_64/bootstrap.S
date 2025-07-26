@@ -241,10 +241,40 @@ long_mode:
 	movl %eax, %edi # magic value
 	movl %ebx, %esi # protocol info
 
-	# TODO: set CPU registers
-	# TODO: clear identity mapping, preserve only the kernel 
-	# TODO: go to kernel
+	# now need to load descriptor tables and set segment registers
+	# reload descriptor tables
+	movabsq	$(gdtr64), %rax
+	lgdt (%rax)
+	movabsq	$(idtr64), %rax
+	lidt (%rax)
+	movabsq	$(ldtr64), %rax
+	lldt (%rax)
 
+	# set 64-bit fs and gs offset to 0
+	xorl %eax, %eax
+	movl %eax, %edx
+	movl $0xc0000100, %ecx
+	wrmsr
+	incq %rcx
+	wrmsr
+
+	movw %ax, %ds
+	movw %ax, %es
+	movw %ax, %fs
+	movw %ax, %gs
+	movw %ax, %ss
+
+	# clear identity mapping, preserve only the kernel 
+	movabsq $pml4_table, %rax
+	movl $0x0, (%rax)
+	movabsq $pdp_table, %rax
+	movl $0x0, (%rax)
+
+	# go to kernel
+	movabsq $(kmain), %rax
+	callq *%rax
+
+	# do some stuff when if it returns? 
 panic64:
 	jmp panic64
 
@@ -255,6 +285,18 @@ panic64:
 	gdtr32:
 		.word GDT_LENGTH
 		.long V2P(GDT_table)
+
+	gdtr64:
+		.word GDT_LENGTH
+		.quad GDT_table
+	
+	idtr64:
+		.word IDT_LENGTH
+		.quad IDT_table
+	
+	ldtr64: # no LDT, load with zero
+		.word 0
+		.quad 0
 
 	.section .init.data
 	.align 8
