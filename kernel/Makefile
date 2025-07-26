@@ -3,7 +3,7 @@ ARCH=x86_64
 CC= $(ARCH)-elf-gcc
 
 KERNEL_ASFLAGS 	= -c -nostdlib -I./arch/$(ARCH)/ -I./
-KERNEL_CFLAGS  	= -c -ffreestanding -std=c23 -fno-pie -fno-stack-protector -nostdlib -nostdinc -Wall -Wextra -ffreestanding -fno-strict-aliasing -O2 -g -I./ 
+KERNEL_CFLAGS  	= -c -ffreestanding -std=c23 -fno-pie -fno-stack-protector -nostdlib -nostdinc -Wall -Wextra -ffreestanding -fno-strict-aliasing -O2 -g -I./
 KERNEL_LD_FLAGS	= -nostdlib
 
 ifeq ($(ARCH),x86_64)
@@ -22,7 +22,7 @@ ifeq ($(ARCH),x86_64)
         -m64
 endif
 
-KERNEL_ASM_SOURCES= arch/$(ARCH)/bootstrap.S arch/$(ARCH)/bootstrap64.S
+KERNEL_ASM_SOURCES= arch/$(ARCH)/bootstrap.S 
 KERNEL_C_SOURCES	= arch/$(ARCH)/main.c 
 
 KERNEL_ASM_OBJS := $(KERNEL_ASM_SOURCES:.S=.S.o)

@@ -1,7 +1,10 @@
+#include <types.h>
 
 int 
-kmain()
+kmain(uint32_t magic, uint32_t mbi_phys)
 {
+	(void)magic;
+	(void)mbi_phys;
 
 	while (1);
 	
