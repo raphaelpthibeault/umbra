@@ -53,8 +53,10 @@ stack_bottom:
 stack_top:
 
 	.align 4096	
+	.globl GDT_table
 GDT_table:
 	.skip 4096
+	.globl IDT_table
 IDT_table:
 	.skip 4096
 pml4_table:
@@ -286,10 +288,12 @@ panic64:
 		.word GDT_LENGTH
 		.long V2P(GDT_table)
 
+	.globl gdtr64
 	gdtr64:
 		.word GDT_LENGTH
 		.quad GDT_table
 	
+	.globl idtr64
 	idtr64:
 		.word IDT_LENGTH
 		.quad IDT_table
