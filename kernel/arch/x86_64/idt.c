@@ -1,4 +1,5 @@
 #include <arch/x86_64/idt.h>
+#include <arch/x86_64/isr.h>
 #include <arch/x86_64/tss.h>
 #include <arch/x86_64/memory_references.h>
 #include <drivers/serial.h>
@@ -7,24 +8,18 @@
 extern struct idt_gate IDT_table[];
 extern struct idtr idtr64;
 
-/* defined in isr.S */
-extern uint64_t isr_stub_table[]; // or extern void *isr_stub_table[];
-
 /* defined here */
-static bool gate_set[IDT_NUM_DESCRIPTORS];
 static struct idtr idtr = {0}; // should be in .bss
 
-uint64_t __routine_handlers[IDT_NUM_DESCRIPTORS];
-
-static void 
-set_gate(uint8_t vector, uintptr_t isr, uint8_t flags, uint8_t ist)
+static void
+create_trap_gate(uint8_t vector, uintptr_t isr, uint16_t cs, uint8_t dpl)
 {
 	struct idt_gate *gate = &IDT_table[vector];
 
 	gate->offset_1 = (isr & 0xFFFF);
-	gate->selector = KERNEL_CODE;
-	gate->ist = ist;
-	gate->attributes = flags;
+	gate->selector = cs;
+	gate->ist = 0; // ?
+	gate->attributes = IDT_DESCRIPTOR_X32_TRAP | dpl | IDT_DESCRIPTOR_PRESENT; /* type = IDT_DESCRIPTOR_X32_TRAP, privilege = dpl, present = IDT_DESCRIPTOR_PRESENT */
 	gate->offset_2 = (isr >> 16) & 0xFFFF;
 	gate->offset_3 = (isr >> 32) & 0xFFFFFFFF;
 	gate->zero = 0;	
@@ -40,12 +35,25 @@ idt_assemble(void)
 	idtr.limit = idtr64.limit;
 	idtr.base = idtr64.base;
 
-	for (uint8_t vector = 0; vector < IDT_NUM_CPU_EXCEPTIONS; ++vector)
-	{
-		//set_gate(vector, isr_stub_table[vector], IDT_DESCRIPTOR_EXCEPTION, TSS_IST_EXCEPTION);
-		set_gate(vector, isr_stub_table[vector], IDT_DESCRIPTOR_EXCEPTION, 0);
-		gate_set[vector] = true;
-	}
+	create_trap_gate(0x00, (uintptr_t)&divide_error_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x01, (uintptr_t)&debug_interrupt_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x02, (uintptr_t)&non_maskable_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x03, (uintptr_t)&break_point_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x04, (uintptr_t)&overflow_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x05, (uintptr_t)&array_bounds_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x06, (uintptr_t)&invalid_opcode_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x07, (uintptr_t)&device_not_available_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x08, (uintptr_t)&double_fault_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x09, (uintptr_t)&coproc_seg_overrun_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x0a, (uintptr_t)&invalid_tss_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x0b, (uintptr_t)&segment_not_present_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x0c, (uintptr_t)&stack_fault_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x0d, (uintptr_t)&general_protection_fault_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x0e, (uintptr_t)&page_fault_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x10, (uintptr_t)&coproc_error_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x11, (uintptr_t)&alignment_check_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x12, (uintptr_t)&machine_check_wrapper, KERNEL_CODE, 0);
+	create_trap_gate(0x13, (uintptr_t)&sse_fault_wrapper, KERNEL_CODE, 0);
 
 	/* no need to reload, changes to IDT apply immediately */
 	serial_print("IDT: idt assembled\n");	

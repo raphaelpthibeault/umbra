@@ -31,11 +31,13 @@ kmain(uint32_t magic, uint32_t mbi_phys)
 
 	idt_assemble();
 
+	/*
 	struct multiboot2_start_tag *mbi_start = (struct multiboot2_start_tag *)((uintptr_t)mbi_phys);
-	/* causes page fault */
+	// causes page fault
 	int foo = mbi_start->size;
 	int bar = foo + foo;
 	serial_print("mbi size: 0x%x\n", foo);
+	*/
 
 	while (1);
 	
