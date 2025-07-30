@@ -3,13 +3,12 @@
 #include <drivers/serial.h>
 #include <arch/x86_64/idt.h>
 
-
 int 
 kmain(uint32_t magic, uint32_t mbi_phys)
 {
 	serial_print("\n\n---------- UMBRA KERNEL ----------\n");
-	serial_print("Multiboot magic: 0x%x\n", magic);
-	serial_print("Multiboot info location (physical): 0x%x\n", mbi_phys);
+	//serial_print("Multiboot magic: 0x%x\n", magic);
+	//serial_print("Multiboot info location (physical): 0x%x\n", mbi_phys);
 
 	if (magic != (uint32_t)0x36d76289)
 	{
@@ -25,13 +24,18 @@ kmain(uint32_t magic, uint32_t mbi_phys)
 	
 	/* 
 	 * general TODO;
-	 * IDT
-	 * GDT
-	 * map memory so as to access mbi_phys
+	 * [x] IDT
+	 * [ ] GDT ? do I need to do more than the bootstrap?
+	 * [ ] map memory so can access mbi_phys
 	 * */
 
-	set_idt();
+	idt_assemble();
 
+	struct multiboot2_start_tag *mbi_start = (struct multiboot2_start_tag *)((uintptr_t)mbi_phys);
+	/* causes page fault */
+	int foo = mbi_start->size;
+	int bar = foo + foo;
+	serial_print("mbi size: 0x%x\n", foo);
 
 	while (1);
 	

@@ -46,12 +46,6 @@
 
 	.section .bss
 
-	.align 16
-stack_bottom:
-	.skip 16384 /* 16KiB */
-	.globl stack_top
-stack_top:
-
 	.align 4096	
 	.globl GDT_table
 GDT_table:
@@ -67,6 +61,12 @@ pd_table:
 	.skip 4096
 pt_table:
 	.skip 4096
+
+	.align 16
+stack_bottom:
+	.skip 16384 /* 16KiB */
+	.globl stack_top
+stack_top:
 
 
 	.section .multiboot
@@ -260,17 +260,27 @@ long_mode:
 	incq %rcx
 	wrmsr
 
+	/*
 	movw %ax, %ds
 	movw %ax, %es
 	movw %ax, %fs
 	movw %ax, %gs
 	movw %ax, %ss
+	*/
+
+	movw $KERNEL_DATA, %dx
+	movw %dx, %ds
+	movw %dx, %es
+	movw %dx, %fs
+	movw %dx, %gs
+	movw $KERNEL_STACK, %dx
+	movw %dx, %ss
 
 	# clear identity mapping, preserve only the kernel 
 	movabsq $pml4_table, %rax
 	movl $0x0, (%rax)
-	movabsq $pdp_table, %rax
-	movl $0x0, (%rax)
+	# movabsq $pdp_table, %rax
+	# movl $0x0, (%rax)
 
 	# go to kernel
 	movabsq $(kmain), %rax
@@ -285,17 +295,17 @@ panic64:
 	
 	.align 8
 	gdtr32:
-		.word GDT_LENGTH
+		.word GDT_LENGTH - 1
 		.long V2P(GDT_table)
 
 	.globl gdtr64
 	gdtr64:
-		.word GDT_LENGTH
+		.word GDT_LENGTH - 1
 		.quad GDT_table
 	
 	.globl idtr64
 	idtr64:
-		.word IDT_LENGTH
+		.word IDT_LENGTH - 1
 		.quad IDT_table
 	
 	ldtr64: # no LDT, load with zero
@@ -322,18 +332,18 @@ gdt_start:
 	.long 0x0000ffff
 	.long 0x00cf9200
 
+	# 64-bit onwards
 	# 0x20 = kernel code segment
 	.long 0x0000ffff
- #.long 0x002f9a00
 	.long 0x00af9a00
 
 	# 0x28 = kernel stack segment
 	.long 0x0000ffff
-	.long 0x00cf9200
+	.long 0x008f9200
 
 	# 0x30 = kernel data segment
 	.long 0x0000ffff
-	.long 0x00cf9200
+	.long 0x008f9200
 
 	# 0x38 = user data segment
 	.long 0x0000ffff

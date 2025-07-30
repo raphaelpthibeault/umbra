@@ -1,41 +1,53 @@
 #include <arch/x86_64/idt.h>
+#include <arch/x86_64/tss.h>
 #include <arch/x86_64/memory_references.h>
 #include <drivers/serial.h>
 
-enum gate_type
-{
-	INTERRUPT_GATE_TYPE = 0xF,
-	TRAP_GATE_TYPE = 0xE,
-};
+/* defined in bootstrap.S (in .bss) */
+extern struct idt_gate IDT_table[];
+extern struct idtr idtr64;
 
-__attribute__((section(".init.text"))) static void 
-create_trap_gate(struct idt_gate *gate, uint16_t code_segment, void (*ip)(void), uint8_t dpl)
-{
-	uintptr_t addr = (uintptr_t)ip;
+/* defined in isr.S */
+extern uint64_t isr_stub_table[]; // or extern void *isr_stub_table[];
 
-	gate->offset_3 = addr >> 32;
-	gate->offset_2 = addr >> 16;
-	gate->offset_1 = addr;
-	gate->selector = code_segment;
-	gate->type = TRAP_GATE_TYPE; 
-	gate->privilege = dpl;	
-	gate->present = 1;
+/* defined here */
+static bool gate_set[IDT_NUM_DESCRIPTORS];
+static struct idtr idtr = {0}; // should be in .bss
+
+uint64_t __routine_handlers[IDT_NUM_DESCRIPTORS];
+
+static void 
+set_gate(uint8_t vector, uintptr_t isr, uint8_t flags, uint8_t ist)
+{
+	struct idt_gate *gate = &IDT_table[vector];
+
+	gate->offset_1 = (isr & 0xFFFF);
+	gate->selector = KERNEL_CODE;
+	gate->ist = ist;
+	gate->attributes = flags;
+	gate->offset_2 = (isr >> 16) & 0xFFFF;
+	gate->offset_3 = (isr >> 32) & 0xFFFFFFFF;
+	gate->zero = 0;	
 }
 
-__attribute__((section(".init.text"))) void 
-set_idt(void)
+void 
+idt_assemble(void)
 {
-	/* NOTE: idtr64 already loaded by bootstrap.S */
-	struct idtr *idtr = (struct idtr *)idtr64;
-	serial_print("IDT:\tidtr->limit: 0x%x\n", idtr->limit);	
-	serial_print("\tidtr->base: 0x%x\n", idtr->base);
+	/* NOTE: idtr64 already loaded by bootstrap.S, idtr is just a copy 
+	 * to avoid going to section .init.text from section .text 
+	 * IDT_table is in .bss so don't bother copying */
 
-	/* 4096 bytes = 256 entries * 16 bytes / entry */
-	struct idt_gate *idt = (struct idt_gate *)IDT_table;
+	idtr.limit = idtr64.limit;
+	idtr.base = idtr64.base;
 
-	//create_trap_gate(&idt[0x00], KERNEL_CODE, &DivideErrorWrapper);
-	// with the wrapper pushing dpl to stack? because the wrapper is supposed to decide privilege (kernel / user), but in this case I know it's kernel so what am I doing?
+	for (uint8_t vector = 0; vector < IDT_NUM_CPU_EXCEPTIONS; ++vector)
+	{
+		//set_gate(vector, isr_stub_table[vector], IDT_DESCRIPTOR_EXCEPTION, TSS_IST_EXCEPTION);
+		set_gate(vector, isr_stub_table[vector], IDT_DESCRIPTOR_EXCEPTION, 0);
+		gate_set[vector] = true;
+	}
 
-	serial_print("IDT: set_idt\n");	
+	/* no need to reload, changes to IDT apply immediately */
+	serial_print("IDT: idt assembled\n");	
 }
 
