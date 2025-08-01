@@ -56,7 +56,7 @@ user_device_not_available(void)
 void
 user_double_fault(struct selector_error_code error)
 {
-	
+	(void)error;	
 }
 
 void

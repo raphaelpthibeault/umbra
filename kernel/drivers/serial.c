@@ -146,6 +146,24 @@ vprint(char *dst, const char *fmt, va_list args)
 				goto copystr;
 			} else if (*fmt == 's') {
 				p = va_arg(args, char *);
+				if (pad_len > 0) {
+					int str_len = 0;
+					if (p == (void *)0) {
+						str_len = 6;
+					} else {
+						char *p_temp = p;
+						while (*p_temp++) {
+							str_len++;
+						}
+					}
+					
+					if (pad_len > str_len) {
+						int padding_to_add = pad_len - str_len;
+						for (i = 0; i < padding_to_add; i++) {
+							*dst++ = pad;
+						}
+					}
+				}
 copystr:
 				if (p == (void *)0) {
 					p = "(null)";		

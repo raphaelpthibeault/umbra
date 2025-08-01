@@ -62,6 +62,7 @@ pd_table:
 pt_table:
 	.skip 4096
 
+	.section .stack
 	.align 16
 stack_bottom:
 	.skip 16384 /* 16KiB */
@@ -172,6 +173,31 @@ start:
 	map_pages 0x00000000, 0x00001000, 0x01
 	map_pages 0x0009f000, 0x000a0000, 0x01
 
+	# map mbi as read-only
+	# mbi is within the bios "Conventional Memory" area
+	# umbra bootloader prefers to put it at 0x10000 (same sas grub)
+	popl %ebx # protocol info
+	
+	movl (%ebx), %ecx # ecx = size (mbi start tag = { uint32_t size, uint32_t reserved })
+	addl $4095, %ecx # add (page_size - 1) to round up to 1 (avoids 0)
+	shrl $12, %ecx # ecx = num pages, non-zero
+	movl %ebx, %eax # start
+
+1: 
+	movl %eax, %edi
+	shrl $9, %edi
+	addl $(V2P(pt_table)), %edi # edi = dest page table entry
+	# avoid overwriting %eax
+	movl %eax, %edx
+	orl $0x1, %edx # edx = pde
+
+	movl %edx, (%edi)
+
+	addl $0x1000, %eax
+	loop 1b
+
+	pushl %ebx # protocol info
+
 	# map VGA buffer as read-write (32 entries * 4kB = 128kB)
 	map_pages 0x000a0000, 0x000c0000, 0x03
 
@@ -189,6 +215,7 @@ start:
 	map_pages2 V2P(rodata_start), V2P(rodata_end), 0x01
 	# map data part of kernel as read-write
 	map_pages2 V2P(data_start), V2P(kernel_end), 0x03
+
 
 	# enable paging
 	# enable pae + pse + pge
@@ -279,8 +306,8 @@ long_mode:
 	# clear identity mapping, preserve only the kernel 
 	movabsq $pml4_table, %rax
 	movl $0x0, (%rax)
-	# movabsq $pdp_table, %rax
-	# movl $0x0, (%rax)
+	movabsq $pdp_table, %rax
+	movl $0x0, (%rax)
 
 	# go to kernel
 	movabsq $(kmain), %rax

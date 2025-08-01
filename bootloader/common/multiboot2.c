@@ -110,8 +110,8 @@ multiboot2_load(disk_t *boot_disk, char *config)
 	bool has_reloc_header = false;
 	struct multiboot_header_tag_relocatable reloc_tag = {0};
 	
-	bool is_new_acpi_required = false;
-	bool is_old_acpi_required = false;
+	//bool is_new_acpi_required = false;
+	//bool is_old_acpi_required = false;
 	bool is_elf_info_requested = false;
 
 	for (struct multiboot_header_tag *tag = (struct multiboot_header_tag *)(header + 1);
@@ -159,10 +159,10 @@ multiboot2_load(disk_t *boot_disk, char *config)
 					switch (req)
 					{
 						case MULTIBOOT_TAG_TYPE_ACPI_NEW:
-							is_new_acpi_required = is_required;
+							//is_new_acpi_required = is_required;
 							break;
 						case MULTIBOOT_TAG_TYPE_ACPI_OLD:
-							is_old_acpi_required = is_required;
+							//is_old_acpi_required = is_required;
 							break;
 						case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
 							is_elf_info_requested = is_required;
@@ -598,6 +598,7 @@ reloc_fail:
 	mbi_start->size = mbi_idx;
 	mbi_start->reserved = 0x00;
 
+	serial_print("[DEBUG] mbi_start->size 0x%x\n", mbi_start->size);
 	serial_print("[DEBUG] multiboot_spinup 0x%x\n", (uintptr_t)multiboot_spinup);
 	serial_print("[DEBUG] reloc_stub 0x%x\n", (uint32_t)(uintptr_t)reloc_stub);
 	serial_print("[DEBUG] entry_point 0x%x\n", (uint32_t)entry_point);

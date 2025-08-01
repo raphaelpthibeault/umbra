@@ -69,6 +69,7 @@ SECTIONS
 		bss_start = .;
 		*(COMMON)
 		*(.bss .bss.*)	
+		*(.stack)
 	}
 	. = ALIGN(4K);
 

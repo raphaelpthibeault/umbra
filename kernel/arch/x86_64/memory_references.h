@@ -19,7 +19,7 @@
 #else
 #include <types.h>
 #define V2P(addr) ((uintptr_t)(addr) - KERNEL_VMA)
-#define P2V(addr) ((uintptr_t(addr) | KERNEL_VMA))
+#define P2V(addr) ((uintptr_t)(addr) | KERNEL_VMA)
 #endif
 
 
