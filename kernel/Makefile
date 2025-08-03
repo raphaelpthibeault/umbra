@@ -23,7 +23,7 @@ ifeq ($(ARCH),x86_64)
 endif
 
 KERNEL_ASM_SOURCES= arch/$(ARCH)/bootstrap.S arch/$(ARCH)/isr.S
-KERNEL_C_SOURCES	= arch/$(ARCH)/main.c drivers/serial.c arch/$(ARCH)/idt.c arch/$(ARCH)/isr.c  # mm/paging.c arch/$(ARCH)/paging.c
+KERNEL_C_SOURCES	= arch/$(ARCH)/main.c drivers/serial.c arch/$(ARCH)/idt.c arch/$(ARCH)/isr.c  arch/$(ARCH)/mmu.c 
 
 KERNEL_ASM_OBJS := $(KERNEL_ASM_SOURCES:.S=.S.o)
 KERNEL_C_OBJS := $(KERNEL_C_SOURCES:.c=.c.o)

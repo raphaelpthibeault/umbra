@@ -206,7 +206,7 @@ start:
 
 	# map text part of bootstrap section as read-only
 	map_pages2 V2P(init_start), V2P(init_text_end), 0x01
-	# map data part of bootstrap section as read0write
+	# map data part of bootstrap section as read-write
 	map_pages2 V2P(init_data_start), V2P(init_data_end), 0x03
 
 	# map text part of kernel as read-only
@@ -215,7 +215,6 @@ start:
 	map_pages2 V2P(rodata_start), V2P(rodata_end), 0x01
 	# map data part of kernel as read-write
 	map_pages2 V2P(data_start), V2P(kernel_end), 0x03
-
 
 	# enable paging
 	# enable pae + pse + pge
@@ -286,14 +285,6 @@ long_mode:
 	wrmsr
 	incq %rcx
 	wrmsr
-
-	/*
-	movw %ax, %ds
-	movw %ax, %es
-	movw %ax, %fs
-	movw %ax, %gs
-	movw %ax, %ss
-	*/
 
 	movw $KERNEL_DATA, %dx
 	movw %dx, %ds
@@ -395,5 +386,4 @@ gdt_tss:
 	.byte 0						# Base (high)
 	.long 0						# Base (upper 32 bits)
 	.long 0						# Reserved
-
 

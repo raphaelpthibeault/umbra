@@ -102,7 +102,3 @@ paging_indexer_assign(paging_indexer_t* indexer, void* address)
 	indexer->pml4 = uaddress & 0x1ff;
 }
 
-
-void *paging_map_page(void* virt, void* phys, uint16_t flags);
-
-

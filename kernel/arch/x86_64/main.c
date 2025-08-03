@@ -1,6 +1,7 @@
 #include <types.h>
 #include <multiboot2.h>
 #include <protocol.h>
+#include <elf.h>
 #include <drivers/serial.h>
 
 #include <arch/x86_64/idt.h>
@@ -11,7 +12,13 @@
  * main routine for x86_64
  * */
 
-struct memory_map *memory_map;
+struct mb2_init
+{
+	uint64_t highest_valid_address;
+	uint64_t highest_kernel_address;
+};
+
+extern void mmu_init(size_t memsize, uintptr_t first_free_page);
 
 static uint64_t 
 mb2_mmap_type_convert(uint64_t mb_type)
@@ -73,6 +80,23 @@ mb2_init(uint32_t mbi_phys)
 	serial_print("mbi size: 0x%x\n", mbi_start->size);
 	serial_print("mbi reserved: 0x%x\n", mbi_start->reserved);
 
+	struct multiboot_tag_elf_sections *elf_tag = mb2_find_tag((void*)mbi_start + sizeof(struct multiboot2_start_tag), MULTIBOOT_TAG_TYPE_ELF_SECTIONS); 
+	serial_print("ELF_TAG: \n");
+	serial_print("\tsize: 0x%x\n", elf_tag->size);
+	serial_print("\tnum: 0x%x\n", elf_tag->num);
+	serial_print("\tentsize: 0x%x\n", elf_tag->entsize);
+	serial_print("\tshndx: 0x%x\n", elf_tag->shndx);
+
+	uint8_t *sections_base = (uint8_t *)&elf_tag->sections;
+	for (size_t i = 0; i < elf_tag->num; ++i)
+	{
+		struct elf64_shdr *shdr = (struct elf64_shdr *)(sections_base + i * elf_tag->entsize);
+		(void)shdr;
+	}
+
+	//struct multiboot_tag_framebuffer *fb_tag = mb2_find_tag((void*)mbi_start + sizeof(struct multiboot2_start_tag), MULTIBOOT_TAG_TYPE_FRAMEBUFFER); 
+
+
 	/* TODO:
 	 *  - pmm_init(memory_map);
 	 *  - paging_reload_kernel_map();
@@ -86,24 +110,6 @@ mb2_init(uint32_t mbi_phys)
 		while (1);
 	}
 
-	/* don't have a pmm yet, so how do we alloc new stuff using just the memory map?
-	 * also need to make it "safe" from being cannibalized by the pmm later  
-	 * so and I don't want to make a new entry
-	 *
-	 * a bit of cleverness
-	 * find [	USED ENTRY	][		FREE ENTRY		] pair and grow used and shrink free
-	 *			[ USED ENTRY	|	NEW	][ FREE ENTRY	]
-	 *
-	 * NEW =
-	 * */
-
-	//uint64_t map_pages = (mbi_start->size / PAGING_PAGE_SIZE) + 1; // 1 ?
-	uint64_t map_pages = (mmap_tag->size / PAGING_PAGE_SIZE) + 1;
-	serial_print("map_pages: 0x%x\n", map_pages);
-
-	struct multiboot_mmap_entry *free_entry = NULL;
-	struct multiboot_mmap_entry *used_entry = NULL;
-
 	for (uint64_t i = 0; i * mmap_tag->entry_size < mmap_tag->size; ++i)
 	{
 		serial_print("entry: 0x%3x", i);
@@ -114,49 +120,9 @@ mb2_init(uint32_t mbi_phys)
 		serial_print("\n");
 	}
 
-	for (uint64_t i = 1; i * mmap_tag->entry_size < mmap_tag->size; ++i)
-	{
-		if (mb2_mmap_type_convert(mmap_tag->entries[i-1].type) == MEMORY_MAP_BUSY
-				&& mb2_mmap_type_convert(mmap_tag->entries[i].type) == MEMORY_MAP_FREE 
-				&& (mmap_tag->entries[i].len / PAGING_PAGE_SIZE) >= map_pages)
-		{
-			used_entry = &mmap_tag->entries[i-1];
-			free_entry = &mmap_tag->entries[i];
-			break;
-		}
-	}
+	/* why can't I just pmm_init with the multiboot memory map? */
 
-	if (free_entry == NULL || used_entry == NULL)
-	{
-		serial_print("[PANIC] Multiboot2: could not find mmap entry USED-FREE pair!\n");	
-		while (1);
-	}
-
-	serial_print("used entry addr: 0x%10x\n", used_entry->addr);
-	serial_print("free entry addr: 0x%10x\n", free_entry->addr);
-
-	void *old_free_base = (void *)free_entry->addr;
-	used_entry->len += map_pages * PAGING_PAGE_SIZE;
-	free_entry->addr += map_pages * PAGING_PAGE_SIZE;
-	free_entry->len -= map_pages * PAGING_PAGE_SIZE;
-
-	/* make the new memory map having length map_pages * PAGING_MAP_SIZE */
-	memory_map = (struct memory_map *)old_free_base;
-	memory_map->entries = (struct memory_map_entry *)((uint64_t)old_free_base + sizeof(struct memory_map));
-	memory_map->entry_count = mmap_tag->size / mmap_tag->entry_size + 1;
-
-	for (uint64_t i = 1; i * mmap_tag->entry_size < mmap_tag->size; ++i)
-	{
-		memory_map->entries[i].base = mmap_tag->entries[i].addr;
-		memory_map->entries[i].length = mmap_tag->entries[i].len;
-		memory_map->entries[i].signal = mb2_mmap_type_convert(mmap_tag->entries[i].type);
-	}
-
-
-	/* TODO framebuffer tag */
-
-	/* */
-
+	/* look for memory hole */
 
 }
 

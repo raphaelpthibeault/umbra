@@ -66,7 +66,6 @@ retry:
 		}
 
 		/* assert memory exists */
-		//  bool memmap_alloc_range(uint64_t base, uint64_t length, uint32_t type, uint32_t overlay_type, bool do_panic, bool create_new_entry);
 		if (!memmap_alloc_range(*target, length, MEMMAP_BOOTLOADER_RECLAIMABLE, MEMMAP_USABLE, false, false))
 		{
 			if (!memmap_alloc_range(*target, length, MEMMAP_BOOTLOADER_RECLAIMABLE, MEMMAP_BOOTLOADER_RECLAIMABLE, false, false))
