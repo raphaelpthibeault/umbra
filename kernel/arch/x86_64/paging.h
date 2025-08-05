@@ -44,9 +44,9 @@ typedef uint64_t paging_desc_t;
 
 typedef struct {
 	uint16_t pml4;
-	uint16_t pml3;
-	uint16_t pml2;
-	uint16_t pml1;
+	uint16_t pdp;
+	uint16_t pd;
+	uint16_t pt;
 } __attribute__((packed)) paging_indexer_t;
 
 typedef struct { 
@@ -93,12 +93,13 @@ paging_indexer_assign(paging_indexer_t* indexer, void* address)
 {
 	uint64_t uaddress = (uint64_t)address;
 	uaddress >>= 12;
-	indexer->pml1 = uaddress & 0x1ff;
+	indexer->pt = uaddress & 0x1ff;
 	uaddress >>= 9;
-	indexer->pml2 = uaddress & 0x1ff;
+	indexer->pd = uaddress & 0x1ff;
 	uaddress >>= 9;
-	indexer->pml3 = uaddress & 0x1ff;
+	indexer->pdp = uaddress & 0x1ff;
 	uaddress >>= 9;
 	indexer->pml4 = uaddress & 0x1ff;
 }
 
+void *paging_map_page(void* virt, void* phys, uint16_t flags);

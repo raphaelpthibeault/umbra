@@ -3,16 +3,18 @@
 
 #include <types.h>
 
-#define MEMORY_MAP_FREE     0x00
-#define MEMORY_MAP_BUSY     0x01
-#define MEMORY_MAP_MMIO     0x02
-#define MEMORY_MAP_NOUSE    0x03
+#define MEMORY_MAP_MEMORY_AVAILABLE              1
+#define MEMORY_MAP_MEMORY_RESERVED               2
+#define MEMORY_MAP_MEMORY_ACPI_RECLAIMABLE       3
+#define MEMORY_MAP_MEMORY_NVS                    4
+#define MEMORY_MAP_MEMORY_BADRAM                 5
 
 struct memory_map_entry
 {
 	uint64_t base;
 	uint64_t length;
-	uint64_t signal;
+	uint32_t type;	
+	uint32_t zero;
 } __attribute__((packed));
 
 struct memory_map

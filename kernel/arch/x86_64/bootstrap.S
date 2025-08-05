@@ -1,4 +1,11 @@
-
+/* x86_64 kernel "bootstrap" also called a trampoline
+ * Multiboot2 does not load the kernel into long mode, so we have to that
+ * Responsibilities:
+ *  - setup GDT and IDT ; which may or may not be temporary, I decided to put them in bss, so there was no need for me to change them later once in the kernel
+ *	- setup temporary paging structures and (temporarily) map the kernel so the CPU can translate the physical addresses to virtual once in long mode
+ *  - jump to long mode
+ *  - jump to kernel main
+ * */
 	.extern kmain
 
 	.extern init_start
@@ -44,21 +51,47 @@
 	loop 1b
 .endm
 
+.macro map_pages3 from to flags
+	movl $\to, %ecx
+	subl \from, %ecx
+	shrl $12, %ecx
+	movl \from, %eax
+	movl %eax, %edi
+	orl $\flags, %eax
+	shrl $9, %edi
+	addl $(V2P(pt_table)), %edi
+1:
+	stosl
+	addl $0x1000, %eax
+	movl $0, (%edi)
+	addl $4, %edi
+	loop 1b
+.endm
+
 	.section .bss
 
 	.align 4096	
 	.globl GDT_table
 GDT_table:
 	.skip 4096
+
 	.globl IDT_table
 IDT_table:
 	.skip 4096
+
+	.globl pml4_table
 pml4_table:
 	.skip 4096
+
+	.globl pdp_table
 pdp_table:
 	.skip 4096
+
+	.globl pd_table
 pd_table:
 	.skip 4096
+
+	.globl pt_table
 pt_table:
 	.skip 4096
 
@@ -216,6 +249,12 @@ start:
 	# map data part of kernel as read-write
 	map_pages2 V2P(data_start), V2P(kernel_end), 0x03
 
+	# map remainder of page table (up to 2 MiB) as read-write for an initial kernel heap
+	movl $(V2P(kernel_end)), %esi
+	addl $0xfff, %esi
+	andl $~0xfff, %esi
+	map_pages3 %esi, 0x200000, 0x03
+
 	# enable paging
 	# enable pae + pse + pge
 	movl %cr4, %eax
@@ -294,7 +333,7 @@ long_mode:
 	movw $KERNEL_STACK, %dx
 	movw %dx, %ss
 
-	# clear identity mapping, preserve only the kernel 
+	# clear identity mapping, preserve only the higher half stuff
 	movabsq $pml4_table, %rax
 	movl $0x0, (%rax)
 	movabsq $pdp_table, %rax

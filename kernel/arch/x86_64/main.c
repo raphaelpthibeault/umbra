@@ -7,38 +7,13 @@
 #include <arch/x86_64/idt.h>
 #include <arch/x86_64/memory_references.h>
 #include <arch/x86_64/paging.h>
+#include <arch/x86_64/mmu.h>
 
 /* 
  * main routine for x86_64
  * */
 
-struct mb2_init
-{
-	uint64_t highest_valid_address;
-	uint64_t highest_kernel_address;
-};
-
-extern void mmu_init(size_t memsize, uintptr_t first_free_page);
-
-static uint64_t 
-mb2_mmap_type_convert(uint64_t mb_type)
-{
-	switch (mb_type)
-	{
-		case MULTIBOOT_MEMORY_AVAILABLE:
-			return MEMORY_MAP_FREE;
-		case MULTIBOOT_MEMORY_RESERVED:
-			return MEMORY_MAP_BUSY;
-		case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
-			return MEMORY_MAP_BUSY;
-		case MULTIBOOT_MEMORY_NVS:
-			return MEMORY_MAP_NOUSE;
-		case MULTIBOOT_MEMORY_BADRAM:
-			return MEMORY_MAP_NOUSE;
-		default:
-			return MEMORY_MAP_NOUSE;
-	}
-}
+extern char kernel_end[];
 
 void *
 mb2_find_tag(void *from, uint32_t type)
@@ -73,9 +48,11 @@ mb2_find_tag(void *from, uint32_t type)
 	return NULL;
 }
 
-static void
+static struct memory_map
 mb2_init(uint32_t mbi_phys)
 {
+	struct memory_map memory_map = {0};
+
 	struct multiboot2_start_tag *mbi_start = (struct multiboot2_start_tag *)(P2V(mbi_phys));
 	serial_print("mbi size: 0x%x\n", mbi_start->size);
 	serial_print("mbi reserved: 0x%x\n", mbi_start->reserved);
@@ -110,20 +87,12 @@ mb2_init(uint32_t mbi_phys)
 		while (1);
 	}
 
-	for (uint64_t i = 0; i * mmap_tag->entry_size < mmap_tag->size; ++i)
-	{
-		serial_print("entry: 0x%3x", i);
-		serial_print("\t addr: 0x%10x", mmap_tag->entries[i].addr);
-		serial_print("\t len: 0x%10x",  mmap_tag->entries[i].len);
-		serial_print("\t type: 0x%3x", mmap_tag->entries[i].type);
-		serial_print("\t zero: 0x%1x", mmap_tag->entries[i].zero);
-		serial_print("\n");
-	}
+	memory_map.entry_count = (mmap_tag->size - sizeof(struct multiboot_tag_mmap)) / mmap_tag->entry_size;
+	serial_print("memory_map entry count: 0x%3x\n", memory_map.entry_count);
+	memory_map.entries = (void *)&mmap_tag->entries;
 
-	/* why can't I just pmm_init with the multiboot memory map? */
 
-	/* look for memory hole */
-
+	return memory_map;
 }
 
 int 
@@ -138,7 +107,8 @@ kmain(uint32_t magic, uint32_t mbi_phys)
 	}
 
 	idt_assemble();
-	mb2_init(mbi_phys);
+	struct memory_map memory_map = mb2_init(mbi_phys);
+	mmu_init(memory_map);
 
 	serial_print("--- end kmain ---\n");
 	while (1);
