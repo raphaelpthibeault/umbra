@@ -21,8 +21,28 @@ extern paging_table_t *pdp_table;
 extern paging_table_t *pd_table;
 extern paging_table_t *pt_table;
 
-static volatile uint32_t *frames;
+/* global state */
+static volatile uint32_t *frames; /* bitmap page frame allocator */
+static size_t num_frames;
+static uintptr_t lowest_available_frame = 0; /* first frame and first n frames */
+static size_t total_memory = 0;
+static size_t unavailable_memory = 0;
 
+static void
+unmark_available_memory(struct memory_map memory_map)
+{
+	for (size_t i = 0; i < memory_map.entry_count; ++i)
+	{
+		struct memory_map_entry this = memory_map.entries[i];
+		if (this.type == MEMORY_MAP_MEMORY_AVAILABLE)
+		{
+			for (uintptr_t base = this.base; base < this.base + (this.length & 0xfffffffffffff000); base += PAGING_PAGE_SIZE)
+			{
+				mmu_frame_clear(base);	
+			}
+		}
+	}
+}
 
 void 
 mmu_init(struct memory_map memory_map)
@@ -78,7 +98,7 @@ mmu_init(struct memory_map memory_map)
 	 * should return first_free_page by coincidence
 	 * */
 
-	size_t num_frames = free_memory >> PAGING_PAGE_BITS;
+	num_frames = free_memory >> PAGING_PAGE_BITS;
 	serial_print("num_frames: 0x%x\n", num_frames);
 	size_t bytes_of_frames = INDEX_FROM_BIT(num_frames * 8);
 	bytes_of_frames = (bytes_of_frames + PAGING_PAGE_MASK) & 0xfffffffffffff000UL;
@@ -99,24 +119,90 @@ mmu_init(struct memory_map memory_map)
 
 	frames = (void *)((uintptr_t)P2V(first_free_page));
 
+	/*  idea: mark all page frames, then unmark the "available" ones 
+	 * */
+
 	for (size_t i = 0; i < bytes_of_frames; ++i)
 	{
 		frames[i] = 0xff;
 	}
 
+	unmark_available_memory(memory_map);
 
+	size_t unavailable = 0, available = 0;
+	for (size_t i = 0; i < INDEX_FROM_BIT(num_frames); ++i)
+	{
+		for (size_t j = 0; j < 32; ++j)
+		{
+			uint32_t test_frame = (uint32_t)0x1 << j;
+			if (frames[i] & test_frame)
+			{
+				++unavailable;
+			}
+			else
+			{
+				++available;
+			}
+		}
+	}
+
+	total_memory = available * 4;
+	unavailable_memory = unavailable * 4;
+
+	/* mark everything up to (first_free_page + bytes_of_frames as in use) */
+	/* includes: kernel + bitmap */
+	for (uintptr_t i = 0; i < first_free_page + bytes_of_frames; i += PAGING_PAGE_SIZE)
+	{
+		mmu_frame_set(i);	
+	}
+
+	/* tests */
+	paging_indexer_t foo;
+	paging_indexer_assign(&foo, (void *)((uintptr_t)KERNEL_HEAP_START));
+
+	serial_print("kernel heap start maybe?:\n");
+	serial_print("\tpml4 idx: 0x%x\n", foo.pml4);
+	serial_print("\tpdp idx:  0x%x\n", foo.pdp);
+	serial_print("\tpd idx:   0x%x\n", foo.pd);
+	serial_print("\tpt idx:   0x%x\n", foo.pt);
+
+	paging_indexer_assign(&foo, (void *)((uintptr_t)0xffffff0000000000ul));
+
+	serial_print("alternative kernel heap start maybe?:\n");
+	serial_print("\tpml4 idx: 0x%x\n", foo.pml4);
+	serial_print("\tpdp idx:  0x%x\n", foo.pdp);
+	serial_print("\tpd idx:   0x%x\n", foo.pd);
+	serial_print("\tpt idx:   0x%x\n", foo.pt);
 }
 
 void 
 mmu_frame_clear(uintptr_t frame_addr)
 {
-	(void)frame_addr;	
+	if (frame_addr < num_frames * PAGING_PAGE_SIZE)
+	{
+		uint64_t frame = frame_addr >> PAGING_PAGE_BITS;
+		uint64_t index = INDEX_FROM_BIT(frame);
+		uint32_t offset = OFFSET_FROM_BIT(frame);
+		frames[index] &= ~((uint32_t)1 << offset);
+		__asm__("" ::: "memory");
+		if (frame < lowest_available_frame)
+		{
+			lowest_available_frame = frame;
+		}
+	}
 }
 
 void 
 mmu_frame_set(uintptr_t frame_addr)
 {
-	(void)frame_addr;	
+	if (frame_addr < num_frames * PAGING_PAGE_SIZE)
+	{
+		uint64_t frame = frame_addr >> PAGING_PAGE_BITS;
+		uint64_t index = INDEX_FROM_BIT(frame);
+		uint32_t offset = OFFSET_FROM_BIT(frame);
+		frames[index] |= ((uint32_t)1 << offset);
+		__asm__("" ::: "memory");
+	}
 }
 
 
